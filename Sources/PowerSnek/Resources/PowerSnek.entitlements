@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!--
+      Developer ID (non-sandboxed) distribution with Hardened Runtime enabled.
+      PowerSnek needs no special entitlements: overlay windows, IOKit power-source
+      reads, and SMAppService login-item registration all work under a standard
+      hardened-runtime signature. Declare any future runtime exceptions here.
+    -->
+</dict>
+</plist>

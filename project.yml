@@ -32,6 +32,8 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.powersnek.app
         INFOPLIST_FILE: Sources/PowerSnek/Resources/Info.plist
         ENABLE_HARDENED_RUNTIME: YES
+        CODE_SIGN_ENTITLEMENTS: Sources/PowerSnek/Resources/PowerSnek.entitlements
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
   PowerSnekKitTests:
     type: bundle.unit-test
     platform: macOS
