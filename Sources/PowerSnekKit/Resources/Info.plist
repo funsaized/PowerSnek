@@ -12,7 +12,5 @@
     <string>1</string>
     <key>CFBundleShortVersionString</key>
     <string>0.1.0</string>
-    <key>NSPrincipalClass</key>
-    <string></string>
 </dict>
 </plist>

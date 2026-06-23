@@ -42,7 +42,7 @@ targets:
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES
-        PRODUCT_BUNDLE_IDENTIFIER: com.powersnek.kitTests
+        PRODUCT_BUNDLE_IDENTIFIER: com.powersnek.kit.tests
 schemes:
   PowerSnek:
     build:
