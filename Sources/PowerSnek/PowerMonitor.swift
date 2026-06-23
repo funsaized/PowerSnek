@@ -9,6 +9,8 @@ public final class PowerMonitor {
 
     public init() {}
 
+    deinit { stop() }
+
     public static func currentState() -> PowerState {
         guard let snapshot = IOPSCopyPowerSourcesInfo()?.takeRetainedValue() else { return .unknown }
         guard let typeCF = IOPSGetProvidingPowerSourceType(snapshot)?.takeUnretainedValue() else { return .unknown }
@@ -21,6 +23,7 @@ public final class PowerMonitor {
     }
 
     public func start(onPlugIn: @escaping () -> Void) {
+        stop()
         self.onPlugIn = onPlugIn
         self.previous = PowerMonitor.currentState()   // seed silently; never fires on launch
 
