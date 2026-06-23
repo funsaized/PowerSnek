@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: Build & test (${{ matrix.os }} / ${{ matrix.arch }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            arch: arm64
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        timeout-minutes: 5
+
+      - name: Select latest stable Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        timeout-minutes: 5
+        with:
+          xcode-version: latest-stable
+
+      - name: Install XcodeGen
+        timeout-minutes: 5
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        timeout-minutes: 5
+        run: xcodegen generate
+
+      - name: Build (no code signing)
+        timeout-minutes: 15
+        run: |
+          xcodebuild build \
+            -project PowerSnek.xcodeproj \
+            -scheme PowerSnek \
+            -configuration Debug \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Test (PowerSnekKit unit tests)
+        timeout-minutes: 15
+        run: |
+          xcodebuild test \
+            -project PowerSnek.xcodeproj \
+            -scheme PowerSnek \
+            -destination 'platform=macOS' \
+            -resultBundlePath build/PowerSnek.xcresult \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Upload test result bundle on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: xcresult-${{ matrix.os }}-${{ matrix.arch }}
+          path: build/PowerSnek.xcresult
+          if-no-files-found: ignore
+          retention-days: 14

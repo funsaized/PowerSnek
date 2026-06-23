@@ -1,0 +1,152 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release version without leading v
+        required: true
+        default: 0.1.0
+
+permissions:
+  contents: write
+
+jobs:
+  verify-secrets-present:
+    name: Verify release secret status
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      apple_signing: ${{ steps.check.outputs.apple_signing }}
+      apple_notarization: ${{ steps.check.outputs.apple_notarization }}
+    steps:
+      - name: Check secret presence
+        id: check
+        timeout-minutes: 2
+        run: |
+          if [[ -n "${{ secrets.APPLE_DEVELOPER_ID_CERT }}" && -n "${{ secrets.APPLE_DEVELOPER_IDENTITY }}" ]]; then
+            echo "apple_signing=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "apple_signing=false" >> "$GITHUB_OUTPUT"
+            echo "macOS signing skipped: need APPLE_DEVELOPER_ID_CERT and APPLE_DEVELOPER_IDENTITY."
+          fi
+          if [[ -n "${{ secrets.APPLE_NOTARYTOOL_API_KEY_ID }}" && -n "${{ secrets.APPLE_NOTARYTOOL_API_ISSUER_ID }}" && -n "${{ secrets.APPLE_NOTARYTOOL_API_KEY }}" ]]; then
+            echo "apple_notarization=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "apple_notarization=false" >> "$GITHUB_OUTPUT"
+            echo "notarization skipped: notarytool secrets absent."
+          fi
+
+  build:
+    name: Build, sign, notarize, package DMG
+    needs: verify-secrets-present
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        timeout-minutes: 5
+
+      - name: Resolve release version
+        id: version
+        timeout-minutes: 2
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            VERSION="${{ inputs.version }}"
+          else
+            VERSION="${GITHUB_REF_NAME#v}"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Select latest stable Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        timeout-minutes: 5
+        with:
+          xcode-version: latest-stable
+
+      - name: Install XcodeGen
+        timeout-minutes: 5
+        run: brew install xcodegen
+
+      - name: Import Developer ID certificate
+        if: needs.verify-secrets-present.outputs.apple_signing == 'true'
+        timeout-minutes: 5
+        env:
+          APPLE_DEVELOPER_ID_CERT: ${{ secrets.APPLE_DEVELOPER_ID_CERT }}
+          APPLE_DEVELOPER_ID_CERT_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_CERT_PASSWORD }}
+          APPLE_KEYCHAIN_PASSWORD: ${{ secrets.APPLE_KEYCHAIN_PASSWORD }}
+        run: scripts/release/import-cert.sh
+
+      - name: Build and sign app
+        timeout-minutes: 20
+        env:
+          APPLE_DEVELOPER_IDENTITY: ${{ secrets.APPLE_DEVELOPER_IDENTITY }}
+        run: scripts/release/build-and-sign.sh
+
+      - name: Package DMG
+        timeout-minutes: 5
+        run: scripts/release/make-dmg.sh "${{ steps.version.outputs.version }}"
+
+      - name: Notarize and staple DMG
+        if: needs.verify-secrets-present.outputs.apple_notarization == 'true'
+        timeout-minutes: 20
+        env:
+          APPLE_NOTARYTOOL_API_KEY_ID: ${{ secrets.APPLE_NOTARYTOOL_API_KEY_ID }}
+          APPLE_NOTARYTOOL_API_ISSUER_ID: ${{ secrets.APPLE_NOTARYTOOL_API_ISSUER_ID }}
+          APPLE_NOTARYTOOL_API_KEY: ${{ secrets.APPLE_NOTARYTOOL_API_KEY }}
+        run: scripts/release/notarize.sh "dist/PowerSnek-${{ steps.version.outputs.version }}.dmg"
+
+      - name: Checksum DMG
+        timeout-minutes: 2
+        run: |
+          # Computed after notarization/stapling, which mutates the .dmg.
+          cd dist && shasum -a 256 "PowerSnek-${{ steps.version.outputs.version }}.dmg" \
+            > "PowerSnek-${{ steps.version.outputs.version }}.dmg.sha256"
+
+      - name: Tear down signing keychain
+        if: always()
+        timeout-minutes: 1
+        run: |
+          security delete-keychain "${RUNNER_TEMP:-/tmp}/powersnek-signing.keychain-db" 2>/dev/null || true
+
+      - name: Upload packaged artifacts
+        uses: actions/upload-artifact@v7
+        timeout-minutes: 5
+        with:
+          name: PowerSnek-${{ steps.version.outputs.version }}
+          path: dist/PowerSnek-*.dmg*
+          if-no-files-found: error
+
+  publish-draft-release:
+    name: Publish draft GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Download packaged artifacts
+        uses: actions/download-artifact@v8
+        timeout-minutes: 5
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Create or update draft release
+        timeout-minutes: 5
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            TAG="v${{ inputs.version }}"
+          else
+            TAG="$GITHUB_REF_NAME"
+          fi
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/* --clobber
+          else
+            gh release create "$TAG" dist/* --draft --title "$TAG" \
+              --notes "PowerSnek $TAG. Draft release — promote once signing and notarization gates are green."
+          fi
