@@ -13,6 +13,7 @@ public enum CometAnimator {
         let cg = color.cgColor
         let brightCG = (NSColor.white.blended(withFraction: 0.5, of: color) ?? color).cgColor
         let length = pathLength(path)
+        guard length > 1 else { completion(); return }
         let comet = max(40, length * 0.10)         // visible comet length in points
         let dash: [NSNumber] = [NSNumber(value: Double(comet)),
                                 NSNumber(value: Double(length - comet))]
@@ -82,7 +83,7 @@ public enum CometAnimator {
     }
 
     /// Approximate length of a CGPath by flattening curves.
-    static func pathLength(_ path: CGPath) -> CGFloat {
+    private static func pathLength(_ path: CGPath) -> CGFloat {
         var length: CGFloat = 0
         var current = CGPoint.zero
         var start = CGPoint.zero
