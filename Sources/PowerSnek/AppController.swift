@@ -31,8 +31,10 @@ public final class AppController {
     }
 
     public func runTestAnimation() {
-        guard let screen = NSScreen.main else { return }
-        fire(on: screen)
+        // Fire on every connected display (independent of effectEnabled, like a preview).
+        for screen in NSScreen.screens {
+            fire(on: screen)
+        }
     }
 
     private func fire(on screen: NSScreen) {

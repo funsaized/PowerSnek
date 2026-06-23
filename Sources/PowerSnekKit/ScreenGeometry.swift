@@ -2,8 +2,12 @@ import AppKit
 
 public enum ScreenGeometry {
     /// Reads the display's corner radius via private KVC, falling back to a constant.
+    /// Guards the KVC access with `responds(to:)` so a missing private key cannot
+    /// raise `NSUnknownKeyException` (which AppKit silently swallows mid-event).
     public static func cornerRadius(for screen: NSScreen, fallback: CGFloat) -> CGFloat {
-        if let n = screen.value(forKey: "_cornerRadius") as? NSNumber {
+        let key = "_cornerRadius"
+        let responds = screen.responds(to: NSSelectorFromString(key))
+        if responds, let n = screen.value(forKey: key) as? NSNumber {
             let v = CGFloat(n.doubleValue)
             if v > 0 { return v }
         }
