@@ -1,0 +1,57 @@
+name: PowerSnek
+options:
+  bundleIdPrefix: com.powersnek
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+targets:
+  PowerSnekKit:
+    type: framework
+    platform: macOS
+    sources:
+      - Sources/PowerSnekKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.powersnek.kit
+        INFOPLIST_FILE: Sources/PowerSnekKit/Resources/Info.plist
+  PowerSnek:
+    type: application
+    platform: macOS
+    sources:
+      - Sources/PowerSnek
+    dependencies:
+      - target: PowerSnekKit
+        embed: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.powersnek.app
+        INFOPLIST_FILE: Sources/PowerSnek/Resources/Info.plist
+        ENABLE_HARDENED_RUNTIME: YES
+  PowerSnekKitTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - Tests/PowerSnekKitTests
+    dependencies:
+      - target: PowerSnekKit
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.powersnek.kitTests
+schemes:
+  PowerSnek:
+    build:
+      targets:
+        PowerSnek: all
+        PowerSnekKit: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - PowerSnekKitTests
