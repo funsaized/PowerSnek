@@ -5,6 +5,10 @@ public enum ScreenGeometry {
     /// Guards the KVC access with `responds(to:)` so a missing private key cannot
     /// raise `NSUnknownKeyException` (which AppKit silently swallows mid-event).
     public static func cornerRadius(for screen: NSScreen, fallback: CGFloat) -> CGFloat {
+        // macOS 26 no longer exposes `_cornerRadius`, so an unguarded
+        // value(forKey:) raises NSUnknownKeyException (which AppKit swallows
+        // mid-event). responds(to:) being false here intentionally means
+        // "key unavailable — use the fallback constant".
         let key = "_cornerRadius"
         let responds = screen.responds(to: NSSelectorFromString(key))
         if responds, let n = screen.value(forKey: key) as? NSNumber {

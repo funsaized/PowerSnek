@@ -69,9 +69,9 @@ public enum CometAnimator {
             fade.fillMode = .forwards
             CATransaction.begin()
             CATransaction.setCompletionBlock {
-                DispatchQueue.main.async {
-                    completion()
-                }
+                // This block runs on the main thread and `completion` is @MainActor,
+                // so call it directly — no extra run-loop hop needed.
+                completion()
             }
             host.opacity = 0
             host.add(fade, forKey: "fade")

@@ -4,6 +4,9 @@ import PowerSnekKit
 @MainActor
 final class AppEnvironment: ObservableObject {
     static let shared = AppEnvironment()
+    // Must be `var`, not `let`: SwiftUI forms a writable key path through this
+    // for bindings such as `$env.settings.effectEnabled` in MenuBarExtra, which
+    // does not compile if it is `let`. It is never reassigned.
     var settings = SettingsStore()
     lazy var controller = AppController(settings: settings)
     private init() {}

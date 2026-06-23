@@ -53,8 +53,11 @@ public enum PerimeterPathBuilder {
             return path
         }
 
-        let ic = max(0, min(notch.innerCornerRadius, (notch.right - notch.left) / 2, notch.depth / 2))
-        let notchBottom = top - notch.depth
+        // Clamp the notch floor so a pathological depth (exceeding the usable
+        // height) cannot drop below the bottom edge and self-cross the outline.
+        let notchBottom = max(bottom + r, top - notch.depth)
+        let actualDepth = top - notchBottom
+        let ic = max(0, min(notch.innerCornerRadius, (notch.right - notch.left) / 2, actualDepth / 2))
 
         // Top edge, left of notch
         path.move(to: CGPoint(x: left + r, y: top))

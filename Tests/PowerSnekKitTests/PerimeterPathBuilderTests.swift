@@ -49,4 +49,13 @@ final class PerimeterPathBuilderTests: XCTestCase {
         let p = CGPoint(x: 500, y: 698 - 20)
         XCTAssertTrue(path.contains(p))
     }
+
+    // A pathological notch depth must be clamped, not escape below the bottom edge
+    func test_buildPath_clampsPathologicalNotchDepth() {
+        let notch = NotchInput(left: 440, right: 560, depth: 5000, innerCornerRadius: 6)
+        let input = ScreenOutlineInput(width: 1000, height: 700, cornerRadius: 12, inset: 2, notch: notch)
+        let box = PerimeterPathBuilder.buildPath(input).boundingBox
+        XCTAssertGreaterThanOrEqual(box.minY, 0)   // floor did not escape below the screen
+        XCTAssertLessThanOrEqual(box.maxY, 700)
+    }
 }

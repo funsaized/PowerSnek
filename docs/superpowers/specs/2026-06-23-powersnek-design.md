@@ -157,9 +157,10 @@ isolation.
     fire all simultaneously.
   - **Debounce:** track screens with an in-flight animation; ignore re-triggers
     for a screen until its animation completes.
-  - **Test command:** `runTestAnimation()` fires the same path on the main
-    screen (wired to the menu "Test animation" and the Settings "Preview"),
-    independent of real power state.
+  - **Test command:** `runTestAnimation()` fires on **all connected displays**
+    (wired to the menu "Test animation" and the Settings "Preview"), independent
+    of real power state — so a preview exercises every screen the real
+    charger-connect event would, including the notch trace on the built-in.
   - Observe `NSApplication.didChangeScreenParametersNotification` only to drop
     stale references; geometry is always read fresh at fire time.
 

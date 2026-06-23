@@ -23,15 +23,18 @@ public final class AppController {
         }
     }
 
+    /// Real charger-connect handler: fires on every display when the effect is enabled.
     public func fireAll() {
         guard settings.effectEnabled else { return }
-        for screen in NSScreen.screens {
-            fire(on: screen)
-        }
+        fireOnAllScreens()
     }
 
+    /// Preview/test command: fires on every display regardless of `effectEnabled`.
     public func runTestAnimation() {
-        // Fire on every connected display (independent of effectEnabled, like a preview).
+        fireOnAllScreens()
+    }
+
+    private func fireOnAllScreens() {
         for screen in NSScreen.screens {
             fire(on: screen)
         }
@@ -40,6 +43,10 @@ public final class AppController {
     private func fire(on screen: NSScreen) {
         let id = screen.displayID
         guard !animatingScreens.contains(id) else { return }   // debounce
+        // Invariant: CometAnimator.run MUST eventually call its completion (it
+        // does, including its early-return guard). The completion removes `id`
+        // here; if it were ever skipped, this screen would stay "animating" and
+        // never fire again until relaunch.
         animatingScreens.insert(id)
 
         let input = ScreenGeometry.outlineInput(for: screen,
