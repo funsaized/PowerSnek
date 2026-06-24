@@ -17,4 +17,13 @@ rm -f "$DMG"
 hdiutil create -volname "PowerSnek" -srcfolder "$STAGE" -ov -format UDZO "$DMG"
 rm -rf "$STAGE"
 
+# Sign the DMG itself so Gatekeeper can verify it (a stapled ticket alone is not
+# enough — `spctl -a -t open` rejects an unsigned image). Notarization + stapling
+# happen afterward in notarize.sh.
+if [[ -n "${APPLE_DEVELOPER_IDENTITY:-}" ]]; then
+  echo "==> Signing DMG with: $APPLE_DEVELOPER_IDENTITY"
+  codesign --force --timestamp --identifier com.powersnek.dmg \
+    --sign "$APPLE_DEVELOPER_IDENTITY" "$DMG"
+fi
+
 echo "==> DMG: $DMG"

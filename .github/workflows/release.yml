@@ -88,6 +88,8 @@ jobs:
 
       - name: Package DMG
         timeout-minutes: 5
+        env:
+          APPLE_DEVELOPER_IDENTITY: ${{ secrets.APPLE_DEVELOPER_IDENTITY }}
         run: scripts/release/make-dmg.sh "${{ steps.version.outputs.version }}"
 
       - name: Notarize and staple DMG
