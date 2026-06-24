@@ -1,20 +1,19 @@
 type Feature = {
   title: string;
   description: string;
-  icon: "sparkle" | "bolt" | "gauge";
+  icon: "sparkle" | "bolt" | "gauge" | "heart";
 };
 
 const features: Feature[] = [
   {
     title: "It traces your notch",
-    description:
-      "The bolt hugs the exact contour of your MacBook's display - notch and all.",
+    description: "The bolt hugs the exact contour of your MacBook's display - notch and all.",
     icon: "sparkle",
   },
   {
     title: "Only when you plug in",
     description:
-      "It fires the instant the charger connects, takes two laps, then fades on its own.",
+      "It fires the instant the charger connects, takes a few laps, then fades on its own.",
     icon: "bolt",
   },
   {
@@ -22,6 +21,11 @@ const features: Feature[] = [
     description:
       "A one-shot flourish, not a running animation. Switch it on or off anytime in Settings.",
     icon: "gauge",
+  },
+  {
+    title: "Why?",
+    description: "We all need a bit more whimsy in our lives. Snekey snek.",
+    icon: "heart",
   },
 ];
 
@@ -40,12 +44,11 @@ export function PowerSnekHero() {
         <section className="hero-copy w-[516px] max-w-[92vw]">
           <Badge />
           <h1 className="mb-4 mt-[18px] font-display text-h1 font-bold text-snek-ink">
-            Plug in. Watch it celebrate.
+            Plug in. Watch it snake.
           </h1>
           <p className="max-w-[478px] text-lede text-body">
-            The moment your charger connects, a jolt of green lightning streaks
-            around your screen and traces the notch - a tiny, electric signal
-            that power is flowing.
+            The moment your charger connects, a jolt of green lightning streaks around your screen
+            and traces the notch - a tiny, electric signal that power is flowing.
           </p>
 
           <div className="feature-list mb-[34px] mt-[30px] flex flex-col gap-5">
@@ -275,10 +278,7 @@ function FeatureIcon({ icon }: { icon: Feature["icon"] }) {
   if (icon === "sparkle") {
     return (
       <svg aria-hidden="true" className="h-[19px] w-[19px]" viewBox="0 0 24 24">
-        <path
-          d="M12 2 L14 9 L21 11 L14 13 L12 22 L10 13 L3 11 L10 9 Z"
-          fill="#f4ffd6"
-        />
+        <path d="M12 2 L14 9 L21 11 L14 13 L12 22 L10 13 L3 11 L10 9 Z" fill="#f4ffd6" />
       </svg>
     );
   }
@@ -289,6 +289,17 @@ function FeatureIcon({ icon }: { icon: Feature["icon"] }) {
         <circle cx="12" cy="13" r="7.5" stroke="#f4ffd6" strokeWidth="2" />
         <path d="M12 13 L15 10" stroke="#f4ffd6" strokeLinecap="round" strokeWidth="2" />
         <path d="M9 4 H15" stroke="#f4ffd6" strokeLinecap="round" strokeWidth="2" />
+      </svg>
+    );
+  }
+
+  if (icon === "heart") {
+    return (
+      <svg aria-hidden="true" className="h-[18px] w-[18px]" fill="none" viewBox="0 0 24 24">
+        <path
+          d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 6.14 4 4 6.4 4c1.54 0 3.04.99 3.56 2.36h2.08C14.56 4.99 16.06 4 17.6 4 20.01 4 22 6.14 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
+          fill="#f4ffd6"
+        />
       </svg>
     );
   }
