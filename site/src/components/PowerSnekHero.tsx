@@ -1,7 +1,7 @@
 type Feature = {
   title: string;
   description: string;
-  icon: "sparkle" | "bolt" | "gauge" | "heart";
+  icon: "sparkle" | "bolt" | "gauge" | "branch" | "heart";
 };
 
 const features: Feature[] = [
@@ -26,6 +26,11 @@ const features: Feature[] = [
     title: "Why?",
     description: "We all need a bit more whimsy in our lives. Snekey snek.",
     icon: "heart",
+  },
+  {
+    title: "Open source",
+    description: "Have an idea for a feature? Send a contribution.",
+    icon: "branch",
   },
 ];
 
@@ -299,6 +304,20 @@ function FeatureIcon({ icon }: { icon: Feature["icon"] }) {
         <path
           d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 6.14 4 4 6.4 4c1.54 0 3.04.99 3.56 2.36h2.08C14.56 4.99 16.06 4 17.6 4 20.01 4 22 6.14 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
           fill="#f4ffd6"
+        />
+      </svg>
+    );
+  }
+
+  if (icon === "branch") {
+    return (
+      <svg aria-hidden="true" className="h-[18px] w-[18px]" fill="none" viewBox="0 0 24 24">
+        <path
+          d="M7 5v8a4 4 0 0 0 4 4h6M17 17l-3-3M17 17l-3 3M7 5a2 2 0 1 0-4 0 2 2 0 0 0 4 0Zm14 12a2 2 0 1 0-4 0 2 2 0 0 0 4 0Z"
+          stroke="#f4ffd6"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="2"
         />
       </svg>
     );

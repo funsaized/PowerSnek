@@ -76,6 +76,12 @@ xcodebuild test  -project PowerSnek.xcodeproj -scheme PowerSnek \
 - CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) builds and tests on every push and PR.
 - Design spec and implementation plan live under [`docs/superpowers/`](docs/superpowers/).
 
+## Contributing
+
+PowerSnek is open source. If you think of a feature you want, issues and pull
+requests are welcome. See [`CONTRIBUTING.md`](CONTRIBUTING.md) for setup,
+project conventions, and PR expectations.
+
 ## Releasing
 
 Tag-triggered, signed and notarized DMGs via
@@ -95,3 +101,7 @@ and its checksum.
 ## Requirements
 
 macOS 14+ (built and tested on macOS 26, Apple Silicon).
+
+## License
+
+Apache License 2.0. See [`LICENSE`](LICENSE).
