@@ -1,6 +1,10 @@
 .DS_Store
 build/
 DerivedData/
+node_modules/
+.next/
+.vercel/
+.playwright-cli/
 *.xcuserstate
 xcuserdata/
 *.xcodeproj/

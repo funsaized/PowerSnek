@@ -25,7 +25,7 @@ struct PowerSnekApp: App {
     @ObservedObject private var env = AppEnvironment.shared
 
     var body: some Scene {
-        MenuBarExtra("PowerSnek", systemImage: "bolt.fill") {
+        MenuBarExtra("PowerSnek", image: "MenuBarIcon") {
             Toggle("Enabled", isOn: $env.settings.effectEnabled)
             Button("Test Animation") { env.controller.runTestAnimation() }
             Divider()

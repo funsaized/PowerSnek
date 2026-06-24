@@ -10,57 +10,101 @@ public enum CometAnimator {
                            lapDuration: Double,
                            lapCount: Int,
                            completion: @escaping @MainActor () -> Void) {
-        let cg = color.cgColor
-        let brightCG = (NSColor.white.blended(withFraction: 0.5, of: color) ?? color).cgColor
         let length = pathLength(path)
         guard length > 1 else { completion(); return }
-        let comet = max(40, length * 0.10)         // visible comet length in points
-        let dash: [NSNumber] = [NSNumber(value: Double(comet)),
-                                NSNumber(value: Double(length - comet))]
+
         let laps = Float(max(1, lapCount))
+        let dur = max(0.1, lapDuration)
+        let base = color.usingColorSpace(.sRGB) ?? color
+        let cg = base.cgColor
 
-        // Wide, dim glow layer
-        let glow = CAShapeLayer()
-        glow.path = path
-        glow.fillColor = nil
-        glow.strokeColor = cg
-        glow.lineWidth = 7
-        glow.lineCap = .round
-        glow.opacity = 0.55
-        glow.lineDashPattern = dash
-        glow.shadowColor = cg
-        glow.shadowRadius = 14
-        glow.shadowOpacity = 1
-        glow.shadowOffset = .zero
+        // --- Tunable look ---
+        let headWidth: CGFloat = 14             // bar thickness at the head
+        let headDiameter = headWidth * 1.8      // bright circular head
+        let cometLen = max(160, length * 0.20)  // length of the comet + tail
+        let tailSegments = 16                   // stacked strokes that fade to the tail
+        let tailHueShift: CGFloat = 0.07        // gentle hue drift toward the tail
 
-        // Narrow, bright core layer
-        let core = CAShapeLayer()
-        core.path = path
-        core.fillColor = nil
-        core.strokeColor = brightCG
-        core.lineWidth = 2.5
-        core.lineCap = .round
-        core.lineDashPattern = dash
-        core.shadowColor = cg
-        core.shadowRadius = 7
-        core.shadowOpacity = 1
-        core.shadowOffset = .zero
+        let headLen: CGFloat = 1
+        let headDash: [NSNumber] = [NSNumber(value: Double(headLen)),
+                                    NSNumber(value: Double(length - headLen))]
 
-        host.addSublayer(glow)
-        host.addSublayer(core)
+        func phaseAnim(from f: CGFloat, to t: CGFloat) -> CABasicAnimation {
+            let a = CABasicAnimation(keyPath: "lineDashPhase")
+            a.fromValue = f
+            a.toValue = t
+            a.duration = dur
+            a.repeatCount = laps
+            a.timingFunction = CAMediaTimingFunction(name: .linear)
+            a.isRemovedOnCompletion = false
+            a.fillMode = .forwards
+            return a
+        }
 
-        let phase = CABasicAnimation(keyPath: "lineDashPhase")
-        phase.fromValue = 0
-        phase.toValue = -length                    // negative advances forward along the path
-        phase.duration = max(0.1, lapDuration)
-        phase.repeatCount = laps
-        phase.timingFunction = CAMediaTimingFunction(name: .linear)
-        phase.isRemovedOnCompletion = false
-        phase.fillMode = .forwards
+        var hue: CGFloat = 0, sat: CGFloat = 0, bri: CGFloat = 0, alpha: CGFloat = 0
+        base.getHue(&hue, saturation: &sat, brightness: &bri, alpha: &alpha)
+        sat = min(1, max(0.7, sat))
+        bri = min(1, max(0.9, bri))
+
+        // Tapering, hue-shifting tail: stacked strokes that all share the head's
+        // leading edge but reach progressively further back. Each is a single
+        // CAShapeLayer in the host's coordinate space, so nothing can drift
+        // apart. Longest (tail) is added first/bottom, shortest (head) on top —
+        // overlap near the head builds brightness; the tail thins and fades.
+        for i in stride(from: tailSegments, through: 1, by: -1) {
+            let frac = CGFloat(i) / CGFloat(tailSegments)     // 1 = full tail … small = head
+            let segLen = cometLen * frac
+            let seg = CAShapeLayer()
+            seg.path = path
+            seg.fillColor = nil
+            seg.lineCap = .round
+            seg.lineJoin = .round
+            seg.lineWidth = headWidth * (1 - 0.30 * frac)     // thinner toward the tail
+            let h = (hue + tailHueShift * frac).truncatingRemainder(dividingBy: 1)
+            let col = NSColor(hue: h < 0 ? h + 1 : h, saturation: sat, brightness: bri, alpha: 1)
+            // Alpha 1/i makes the stacked transparencies telescope to an exactly
+            // LINEAR fade (uniform steps) instead of an exponential one that bands.
+            seg.strokeColor = col.withAlphaComponent(1.0 / CGFloat(i)).cgColor
+            seg.lineDashPattern = [NSNumber(value: Double(segLen)),
+                                   NSNumber(value: Double(length - segLen))]
+            if i <= 2 {                                       // soft halo on the bright front
+                seg.shadowColor = cg
+                seg.shadowRadius = 13
+                seg.shadowOpacity = 0.8
+                seg.shadowOffset = .zero
+            }
+            host.addSublayer(seg)
+            let phi0 = segLen - cometLen                      // anchor every leading edge at the head
+            seg.add(phaseAnim(from: phi0, to: phi0 - length), forKey: "phase")
+        }
+
+        // Bright circular head leading the tail, with a stronger glow.
+        let headGlow = CAShapeLayer()
+        headGlow.path = path
+        headGlow.fillColor = nil
+        headGlow.strokeColor = cg
+        headGlow.lineWidth = headDiameter
+        headGlow.lineCap = .round
+        headGlow.lineDashPattern = headDash
+        headGlow.shadowColor = cg
+        headGlow.shadowRadius = 28
+        headGlow.shadowOpacity = 1
+        headGlow.shadowOffset = .zero
+        host.addSublayer(headGlow)
+
+        let headCore = CAShapeLayer()
+        headCore.path = path
+        headCore.fillColor = nil
+        headCore.strokeColor = (NSColor.white.blended(withFraction: 0.55, of: base) ?? base).cgColor
+        headCore.lineWidth = headDiameter * 0.55
+        headCore.lineCap = .round
+        headCore.lineDashPattern = headDash
+        host.addSublayer(headCore)
+
+        let headAnim = phaseAnim(from: -cometLen, to: -(length + cometLen))  // head at the front edge
 
         CATransaction.begin()
         CATransaction.setCompletionBlock {
-            // Fade the whole host out, then report completion on the main queue.
             let fade = CABasicAnimation(keyPath: "opacity")
             fade.fromValue = 1
             fade.toValue = 0
@@ -68,17 +112,13 @@ public enum CometAnimator {
             fade.isRemovedOnCompletion = false
             fade.fillMode = .forwards
             CATransaction.begin()
-            CATransaction.setCompletionBlock {
-                // This block runs on the main thread and `completion` is @MainActor,
-                // so call it directly — no extra run-loop hop needed.
-                completion()
-            }
+            CATransaction.setCompletionBlock { completion() }
             host.opacity = 0
             host.add(fade, forKey: "fade")
             CATransaction.commit()
         }
-        glow.add(phase, forKey: "phase")
-        core.add(phase, forKey: "phase")
+        headGlow.add(headAnim, forKey: "phase")
+        headCore.add(headAnim, forKey: "phase")
         CATransaction.commit()
     }
 

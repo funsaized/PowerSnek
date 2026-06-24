@@ -30,10 +30,11 @@ struct SettingsView: View {
                 HStack {
                     Text("slower").font(.caption).foregroundStyle(.secondary)
                     // Higher lapDuration = slower; invert the slider so right = faster.
+                    // Range 2.0..6.0 s/lap (sum 8.0); even "fastest" is gentle.
                     Slider(value: Binding(
-                        get: { 2.6 - settings.lapDuration },     // maps 0.6..2.0 -> 2.0..0.6
-                        set: { settings.lapDuration = 2.6 - $0 }
-                    ), in: 0.6...2.0)
+                        get: { 8.0 - settings.lapDuration },     // maps 2.0..6.0 -> 6.0..2.0
+                        set: { settings.lapDuration = 8.0 - $0 }
+                    ), in: 2.0...6.0)
                     Text("faster").font(.caption).foregroundStyle(.secondary)
                 }
             }

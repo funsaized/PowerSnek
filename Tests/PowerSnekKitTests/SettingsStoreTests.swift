@@ -14,7 +14,7 @@ final class SettingsStoreTests: XCTestCase {
         XCTAssertTrue(s.effectEnabled)
         XCTAssertEqual(s.cometColorHex, "#34FF6A")
         XCTAssertEqual(s.lapCount, 2)
-        XCTAssertEqual(s.lapDuration, 1.2, accuracy: 0.0001)
+        XCTAssertEqual(s.lapDuration, 3.0, accuracy: 0.0001)
     }
 
     func test_persistsAcrossInstances() {

@@ -24,7 +24,7 @@ public final class SettingsStore: ObservableObject {
             Key.enabled: true,
             Key.color: SettingsStore.defaultColorHex,
             Key.laps: 2,
-            Key.duration: 1.2,
+            Key.duration: 3.0,
         ])
         self.effectEnabled = defaults.bool(forKey: Key.enabled)
         self.cometColorHex = defaults.string(forKey: Key.color) ?? SettingsStore.defaultColorHex
