@@ -28,17 +28,30 @@ APP="$DIST/PowerSnek.app"
 
 if [[ -n "${APPLE_DEVELOPER_IDENTITY:-}" ]]; then
   echo "==> Signing with: $APPLE_DEVELOPER_IDENTITY"
-  # Sign embedded frameworks first (inside-out), then the app bundle.
-  if [[ -d "$APP/Contents/Frameworks" ]]; then
-    find "$APP/Contents/Frameworks" -maxdepth 1 -name "*.framework" -print0 \
-      | while IFS= read -r -d '' fw; do
-          codesign --force --options runtime --timestamp \
-            --sign "$APPLE_DEVELOPER_IDENTITY" "$fw"
-        done
-  fi
+  sign() { codesign --force --options runtime --timestamp --sign "$APPLE_DEVELOPER_IDENTITY" "$@"; }
+
+  # Sign INSIDE-OUT. On the Xcode 26 toolchain the linker leaves an ad-hoc
+  # signature on every Mach-O; `codesign` on a bundle will NOT re-sign through
+  # that (it errors "code object is not signed at all"), so each inner binary
+  # must be signed before its bundle. A glob loop — not `find | while` — keeps
+  # any failure visible under `set -e` instead of swallowing it in a subshell.
+  shopt -s nullglob
+  for fw in "$APP/Contents/Frameworks"/*.framework; do
+    name="$(basename "$fw" .framework)"
+    echo "  - signing framework: $name"
+    sign "$fw/Versions/A/$name"   # inner binary first
+    sign "$fw/Versions/A"         # then the version bundle
+  done
+  shopt -u nullglob
+
+  app_bin="$APP/Contents/MacOS/$(/usr/libexec/PlistBuddy -c 'Print CFBundleExecutable' "$APP/Contents/Info.plist")"
+  echo "  - signing app binary: $(basename "$app_bin")"
+  sign "$app_bin"
+  echo "  - signing app bundle"
   codesign --force --options runtime --timestamp \
     --entitlements "$ENTITLEMENTS" \
     --sign "$APPLE_DEVELOPER_IDENTITY" "$APP"
+
   echo "==> Verifying signature"
   codesign --verify --deep --strict --verbose=2 "$APP"
 else
