@@ -2,6 +2,8 @@
 
 > Plug in. Watch it celebrate.
 
+[Website](http://powersnek.s11a.com/) · [Download](https://github.com/funsaized/PowerSnek/releases/latest)
+
 PowerSnek is a tiny macOS menu-bar app that does one thing: when you plug in
 your charger, it draws a green comet around the edge of each display, including
 the MacBook notch, then gets out of the way.
