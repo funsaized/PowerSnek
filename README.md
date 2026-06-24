@@ -2,23 +2,25 @@
 
 > Plug in. Watch it celebrate.
 
-PowerSnek is a lightweight, native macOS menu-bar app. The instant your charger
-connects, a vivid green comet sweeps around the perimeter of **every** connected
-display — tracing the exact contour of your screen, **notch and all** — for a
-couple of laps, then fades on its own. A one-shot flourish, not a running
-animation: GPU-composited, no persistent windows, negligible battery cost.
+PowerSnek is a tiny macOS menu-bar app that does one thing: when you plug in
+your charger, it draws a green comet around the edge of each display, including
+the MacBook notch, then gets out of the way.
 
-- 🟢 **Traces your notch** — the comet hugs the real contour of the built-in display.
-- ⚡ **Only when you plug in** — fires on the battery→AC transition, then fades.
-- 🔋 **Zero battery cost** — a one-shot Core Animation flourish. Toggle it anytime.
-- 🖥️ **All displays** — every connected screen celebrates at once.
+It is a one-shot animation, not a background effect. There are no persistent
+windows, no Accessibility or Screen Recording permissions, and no ongoing GPU
+work after the animation finishes.
+
+- Traces the real screen outline, notch included.
+- Runs only on the battery-to-AC transition.
+- Animates all connected displays.
+- Can be toggled or previewed from the menu bar.
 
 ## Install
 
-**Download:** grab the latest `PowerSnek-x.y.z.dmg` from
+**Download:** get the latest `PowerSnek-x.y.z.dmg` from
 [Releases](https://github.com/funsaized/PowerSnek/releases), open it, and drag
-**PowerSnek** to Applications. Launch it — a ⚡ icon appears in your menu bar
-(no Dock icon).
+**PowerSnek** to Applications. Launch it, and a small power icon appears in the
+menu bar. There is no Dock icon.
 
 **Build from source:**
 
@@ -30,33 +32,33 @@ open PowerSnek.xcodeproj      # ⌘R to run
 
 ## Settings
 
-Click the menu-bar ⚡ → **Settings…**:
+Click the menu-bar icon, then open **Settings...**:
 
-- **Enable effect** — master on/off
-- **Launch at login** — start automatically (via `SMAppService`)
-- **Comet color** — defaults to vivid green `#34FF6A`
-- **Laps** — 1–5 (default 2)
-- **Speed** — lap duration
-- **Preview** — fire the animation on all displays without unplugging
+- **Enable effect**: master on/off
+- **Launch at login**: start automatically with `SMAppService`
+- **Comet color**: defaults to `#34FF6A`
+- **Laps**: 1-5, default 2
+- **Speed**: lap duration
+- **Preview**: run the animation without unplugging
 
 The menu also has **Test Animation** for a quick preview.
 
 ## How it works
 
-A SwiftUI menu-bar agent drives AppKit + Core Animation. The testable logic
-lives in a `PowerSnekKit` framework; the app target owns the IOKit listener,
-overlay windows, the comet, and the UI.
+The app is a SwiftUI menu-bar agent with AppKit overlay windows and Core
+Animation strokes. Testable logic lives in `PowerSnekKit`; the app target owns
+the IOKit listener, overlay windows, animation, and UI.
 
 | Piece | Responsibility |
 | --- | --- |
-| `PowerMonitor` | IOKit power-source notifications; fires only on battery→AC (seeded silently so launch/wake never trigger it) |
-| `PerimeterPathBuilder` | Pure geometry → a closed `CGPath` outline, detouring around the notch |
+| `PowerMonitor` | IOKit power-source notifications; fires only on battery-to-AC, with launch/wake seeded silently |
+| `PerimeterPathBuilder` | Pure geometry to a closed `CGPath` outline, including notch detours |
 | `ScreenGeometry` | Reads live `NSScreen` insets/notch/corner radius into the builder |
 | `CometOverlayWindow` | One borderless, click-through, shield-level window per display |
 | `CometAnimator` | Stacked `CAShapeLayer` strokes + glow, driven by an animated `lineDashPhase` |
 | `AppController` | Orchestrates: on plug-in, animate every display (with per-display debounce) |
 
-No Accessibility or Screen Recording permissions required.
+PowerSnek does not request Accessibility or Screen Recording permissions.
 
 ## Development
 
@@ -68,15 +70,15 @@ xcodebuild test  -project PowerSnek.xcodeproj -scheme PowerSnek \
   -destination 'platform=macOS'
 ```
 
-- `project.yml` is the source of truth ([XcodeGen](https://github.com/yonaskolb/XcodeGen)); `PowerSnek.xcodeproj` is generated and git-ignored.
+- `project.yml` is the source of truth ([XcodeGen](https://github.com/yonaskolb/XcodeGen)); regenerate the Xcode project from it.
 - CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) builds and tests on every push and PR.
 - Design spec and implementation plan live under [`docs/superpowers/`](docs/superpowers/).
 
 ## Releasing
 
-Tag-triggered, signed + notarized DMGs via
+Tag-triggered, signed and notarized DMGs via
 [`.github/workflows/release.yml`](.github/workflows/release.yml). Signing and
-notarization are **secret-gated** — see
+notarization are secret-gated; see
 [`scripts/release/README.md`](scripts/release/README.md) for the required
 secrets. To cut a release:
 
@@ -84,8 +86,8 @@ secrets. To cut a release:
 git tag v0.1.0 && git push origin v0.1.0
 ```
 
-This builds a universal binary, signs it with Developer ID + Hardened Runtime,
-notarizes and staples it, and publishes a **draft** GitHub Release with the DMG
+This builds a universal binary, signs it with Developer ID and Hardened Runtime,
+notarizes and staples it, and publishes a draft GitHub Release with the DMG
 and its checksum.
 
 ## Requirements
