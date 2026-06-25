@@ -9,6 +9,7 @@ public final class SettingsStore: ObservableObject {
         static let color = "cometColorHex"
         static let laps = "lapCount"
         static let duration = "lapDuration"
+        static let onboarded = "hasCompletedOnboarding"
     }
 
     private let defaults: UserDefaults
@@ -17,6 +18,8 @@ public final class SettingsStore: ObservableObject {
     @Published public var cometColorHex: String { didSet { defaults.set(cometColorHex, forKey: Key.color) } }
     @Published public var lapCount: Int { didSet { defaults.set(lapCount, forKey: Key.laps) } }
     @Published public var lapDuration: Double { didSet { defaults.set(lapDuration, forKey: Key.duration) } }
+    /// Whether the first-run welcome window has been shown and dismissed.
+    @Published public var hasCompletedOnboarding: Bool { didSet { defaults.set(hasCompletedOnboarding, forKey: Key.onboarded) } }
 
     public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -25,10 +28,12 @@ public final class SettingsStore: ObservableObject {
             Key.color: SettingsStore.defaultColorHex,
             Key.laps: 2,
             Key.duration: 3.0,
+            Key.onboarded: false,
         ])
         self.effectEnabled = defaults.bool(forKey: Key.enabled)
         self.cometColorHex = defaults.string(forKey: Key.color) ?? SettingsStore.defaultColorHex
         self.lapCount = defaults.integer(forKey: Key.laps)
         self.lapDuration = defaults.double(forKey: Key.duration)
+        self.hasCompletedOnboarding = defaults.bool(forKey: Key.onboarded)
     }
 }

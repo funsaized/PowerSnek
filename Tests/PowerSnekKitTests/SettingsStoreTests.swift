@@ -15,6 +15,7 @@ final class SettingsStoreTests: XCTestCase {
         XCTAssertEqual(s.cometColorHex, "#34FF6A")
         XCTAssertEqual(s.lapCount, 2)
         XCTAssertEqual(s.lapDuration, 3.0, accuracy: 0.0001)
+        XCTAssertFalse(s.hasCompletedOnboarding)
     }
 
     func test_persistsAcrossInstances() {
@@ -24,11 +25,13 @@ final class SettingsStoreTests: XCTestCase {
         s1.lapCount = 4
         s1.cometColorHex = "#FF0000"
         s1.lapDuration = 0.8
+        s1.hasCompletedOnboarding = true
 
         let s2 = SettingsStore(defaults: d)
         XCTAssertFalse(s2.effectEnabled)
         XCTAssertEqual(s2.lapCount, 4)
         XCTAssertEqual(s2.cometColorHex, "#FF0000")
         XCTAssertEqual(s2.lapDuration, 0.8, accuracy: 0.0001)
+        XCTAssertTrue(s2.hasCompletedOnboarding)
     }
 }

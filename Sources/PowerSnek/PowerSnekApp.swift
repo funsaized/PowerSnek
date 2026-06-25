@@ -9,13 +9,32 @@ final class AppEnvironment: ObservableObject {
     // does not compile if it is `let`. It is never reassigned.
     var settings = SettingsStore()
     lazy var controller = AppController(settings: settings)
+    lazy var welcomeController = WelcomeWindowController(
+        settings: settings,
+        controller: controller,
+        openSettings: AppEnvironment.openSettings
+    )
     private init() {}
+
+    /// Opens the SwiftUI `Settings` scene from non-SwiftUI (AppKit) contexts.
+    static func openSettings() {
+        if NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil) { return }
+        _ = NSApp.sendAction(Selector(("showPreferencesWindow:")), to: nil, from: nil)
+    }
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
+        let env = AppEnvironment.shared
         // Start listening for charger connect events.
-        AppEnvironment.shared.controller.start()
+        env.controller.start()
+        // First launch: show the welcome window once the UI is ready.
+        if !env.settings.hasCompletedOnboarding {
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(400))
+                env.welcomeController.show()
+            }
+        }
     }
 }
 
@@ -30,6 +49,7 @@ struct PowerSnekApp: App {
             Button("Test Animation") { env.controller.runTestAnimation() }
             Divider()
             SettingsLink { Text("Settings…") }
+            Button("Welcome to PowerSnek") { env.welcomeController.show() }
             Divider()
             Button("Quit PowerSnek") { NSApplication.shared.terminate(nil) }
         }
