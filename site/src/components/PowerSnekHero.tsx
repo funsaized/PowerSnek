@@ -260,7 +260,7 @@ function Badge() {
   return (
     <span className="inline-flex items-center gap-2 rounded-pill bg-[#e7f7b8] px-3.5 py-[7px] text-badge font-bold text-snek-olivedark shadow-[0_0_0_1px_rgba(120,155,22,.25)]">
       <BoltIcon className="h-[11px] w-[11px] animate-zap fill-snek-olive" />
-      NEW IN 0.1.0
+      NEW IN 0.2.0
     </span>
   );
 }
