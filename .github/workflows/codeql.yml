@@ -14,7 +14,7 @@ permissions:
 jobs:
   analyze:
     name: Analyze (${{ matrix.language }})
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     permissions:
       security-events: write
@@ -25,12 +25,16 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # Swift CodeQL is only supported on macOS runners.
           - language: swift
             build-mode: none
+            runner: macos-latest
           - language: javascript-typescript
             build-mode: none
+            runner: ubuntu-latest
           - language: actions
             build-mode: none
+            runner: ubuntu-latest
 
     steps:
       - name: Check out repository
