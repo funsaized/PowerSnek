@@ -1,6 +1,6 @@
 type Feature = {
   title: string;
-  description: string;
+  description: ReactNode;
   icon: "sparkle" | "bolt" | "gauge" | "branch" | "heart";
 };
 
@@ -29,7 +29,19 @@ const features: Feature[] = [
   },
   {
     title: "Open source",
-    description: "Have an idea for a feature? Send a contribution.",
+    description: (
+      <>
+        Have an idea for a feature?{" "}
+        <a
+          className="font-semibold text-snek-olive underline underline-offset-2 transition hover:text-snek-olivedark"
+          href="https://github.com/funsaized/PowerSnek"
+          rel="noopener noreferrer"
+          target="_blank"
+        >
+          Send a contribution.
+        </a>
+      </>
+    ),
     icon: "branch",
   },
 ];
@@ -333,4 +345,4 @@ function BoltIcon({ className }: { className?: string }) {
     </svg>
   );
 }
-import type { CSSProperties } from "react";
+import type { CSSProperties, ReactNode } from "react";
