@@ -27,7 +27,7 @@ jobs:
         include:
           # Swift CodeQL is only supported on macOS runners.
           - language: swift
-            build-mode: none
+            build-mode: autobuild
             runner: macos-latest
           - language: javascript-typescript
             build-mode: none
