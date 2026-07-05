@@ -46,7 +46,6 @@ public final class CometAnimator {
     private var headGlow = CAShapeLayer()
     private var headCore = CAShapeLayer()
     private let breathA = CALayer()
-    private let breathB = CALayer()
     private let rimHaloGroup = CALayer()
     private var rimHalo: CAShapeLayer?
     private var rimCore: CAShapeLayer?
@@ -110,7 +109,7 @@ public final class CometAnimator {
         completion = nil
         link?.invalidate()
         link = nil
-        ([trailHaloGroup, headGlowGroup, rimHaloGroup, flash, glint, breathA, breathB]
+        ([trailHaloGroup, headGlowGroup, rimHaloGroup, flash, glint, breathA]
             + trailCores + [headCore]).forEach { $0.removeFromSuperlayer() }
         rimCore?.removeFromSuperlayer()
         done()
@@ -172,18 +171,6 @@ public final class CometAnimator {
         breathA.opacity = 0
         blur(breathA, radius: CometMath.breathABlur * scale)
         host.addSublayer(breathA)
-
-        let nr = outline.notchRect
-        let bw = nr.width + 16 * scale
-        let bh = nr.height + 12 * scale
-        breathB.backgroundColor = palette.bright.cgColor
-        breathB.cornerRadius = 18 * scale
-        breathB.frame = CGRect(x: nr.midX - bw / 2,
-                               y: host.bounds.height - 2 * scale - bh,
-                               width: bw, height: bh)
-        breathB.opacity = 0
-        blur(breathB, radius: CometMath.breathBBlur * scale)
-        host.addSublayer(breathB)
 
         if let rim = outline.rimPath {
             rimHaloGroup.frame = host.bounds
@@ -286,8 +273,12 @@ public final class CometAnimator {
         let centerY = (host.bounds.height + nr.minY) / 2 - 6 * scale
         breathA.frame = CGRect(x: nr.midX - width / 2, y: centerY - height / 2,
                                width: width, height: height)
-        breathA.opacity = Float(0.6 * o * f.fade)
-        breathB.opacity = Float(0.3 * o * f.fade)
+        // Peak opacity raised from the reference (0.6) alongside the tighter
+        // bloom blurs for a more pronounced landing pulse.
+        breathA.opacity = Float(0.72 * o * f.fade)
+        // The reference's second, tighter breath glow is intentionally
+        // omitted: it read as a stray green dot at the pulse's center
+        // (user feedback during visual verification).
 
         setCircle(glint, center: outline.landingPoint, radius: f.glintRadius * scale)
         glint.opacity = Float(f.glintOpacity)
@@ -298,7 +289,7 @@ public final class CometAnimator {
     }
 
     private func setFinaleHidden() {
-        var layers: [CALayer] = [flash, glint, breathA, breathB]
+        var layers: [CALayer] = [flash, glint, breathA]
         rimHalo.map { layers.append($0) }
         rimCore.map { layers.append($0) }
         layers.forEach { $0.opacity = 0 }

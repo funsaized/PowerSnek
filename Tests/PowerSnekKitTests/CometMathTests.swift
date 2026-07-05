@@ -62,7 +62,7 @@ final class CometMathTests: XCTestCase {
         XCTAssertEqual(f.rimFraction, 0, accuracy: 1e-6)
         XCTAssertEqual(f.fade, 1, accuracy: 1e-6)
         XCTAssertEqual(f.breath, 0, accuracy: 1e-6)
-        XCTAssertEqual(f.glintRadius, 9, accuracy: 1e-6)
+        XCTAssertEqual(f.glintRadius, 14, accuracy: 1e-6)
         XCTAssertEqual(f.glintOpacity, 1, accuracy: 1e-6)
     }
 

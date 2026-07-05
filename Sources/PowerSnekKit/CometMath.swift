@@ -31,9 +31,10 @@ public enum CometMath {
     public static let trailHaloBlur: CGFloat = 9
     public static let headGlowBlur: CGFloat = 7
     public static let rimHaloBlur: CGFloat = 8
-    public static let flashBlur: CGFloat = 10
-    public static let breathABlur: CGFloat = 26
-    public static let breathBBlur: CGFloat = 14
+    // Bloom blurs tightened from the reference (10/26/14) for a crisper,
+    // punchier landing per user feedback during visual verification.
+    public static let flashBlur: CGFloat = 3
+    public static let breathABlur: CGFloat = 10
 
     public static func scale(forScreenWidth width: CGFloat) -> CGFloat {
         width / referenceScreenWidth
@@ -96,8 +97,13 @@ public struct FinaleState: Equatable {
             flashOpacity: CGFloat(0.95 * (1 - n)),
             rimFraction: CGFloat(CometMath.easeOutQuad(u / 0.32) * 0.5),
             fade: CGFloat(fade),
-            breath: CGFloat(sin(.pi * CometMath.clamp01((u - 0.1) / 0.62))),
-            glintRadius: CGFloat(max(2, 9 * (1 - u))),
-            glintOpacity: CGFloat(1 - CometMath.easeOutQuad(u)))
+            // Faster-attack pulse (pow < 1 steepens the rise) and a larger
+            // hard-white core than the reference (9), per user feedback.
+            breath: CGFloat(pow(sin(.pi * CometMath.clamp01((u - 0.1) / 0.62)), 0.75)),
+            glintRadius: CGFloat(max(2, 14 * (1 - u))),
+            // The glint dies into the flash (gone by 25 % of the finale)
+            // instead of lingering through the pulse as a center dot
+            // (reference used 1 − Tm(u); changed per user feedback).
+            glintOpacity: CGFloat(1 - CometMath.easeOutQuad(u / 0.25)))
     }
 }
