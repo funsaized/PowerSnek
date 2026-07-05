@@ -54,10 +54,10 @@ the IOKit listener, overlay windows, animation, and UI.
 | Piece | Responsibility |
 | --- | --- |
 | `PowerMonitor` | IOKit power-source notifications; fires only on battery-to-AC, with launch/wake seeded silently |
-| `PerimeterPathBuilder` | Pure geometry to a closed `CGPath` outline, including notch detours |
+| `PerimeterPathBuilder` | Pure geometry to a `ScreenOutline`: the closed perimeter path (bottom-left start, clockwise) plus landing metrics (landing point/fraction, notch rim path, notch rect) |
 | `ScreenGeometry` | Reads live `NSScreen` insets/notch/corner radius into the builder |
 | `CometOverlayWindow` | One borderless, click-through, shield-level window per display |
-| `CometAnimator` | Stacked `CAShapeLayer` strokes + glow, driven by an animated `lineDashPhase` |
+| `CometAnimator` | `CADisplayLink`-driven per-frame renderer: eased variable-speed sweep, collapsing trail, landing on the notch, then a flash + breathing-glow finale |
 | `AppController` | Orchestrates: on plug-in, animate every display (with per-display debounce) |
 
 PowerSnek does not request Accessibility or Screen Recording permissions.

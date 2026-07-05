@@ -53,7 +53,7 @@ public final class AppController {
                                                 inset: inset,
                                                 builtInFallbackRadius: builtInFallbackRadius,
                                                 notchInnerRadius: notchInnerRadius)
-        let path = PerimeterPathBuilder.buildPath(input)
+        let outline = PerimeterPathBuilder.buildOutline(input)
         let color = HexColor.nsColor(fromHex: settings.cometColorHex) ?? NSColor.systemGreen
 
         let window = CometOverlayWindow(screen: screen)
@@ -61,10 +61,11 @@ public final class AppController {
         activeWindows.append(window)
 
         CometAnimator.run(on: window.hostLayer,
-                          path: path,
+                          displayLinkView: window.contentView!,   // set in CometOverlayWindow.init
+                          outline: outline,
                           color: color,
-                          lapDuration: settings.lapDuration,
-                          lapCount: settings.lapCount) { [weak self, weak window] in
+                          laps: settings.lapCount,
+                          lapDuration: settings.lapDuration) { [weak self, weak window] in
             guard let self else { return }
             if let window {
                 window.orderOut(nil)

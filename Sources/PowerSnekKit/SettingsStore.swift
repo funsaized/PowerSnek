@@ -27,7 +27,7 @@ public final class SettingsStore: ObservableObject {
             Key.enabled: true,
             Key.color: SettingsStore.defaultColorHex,
             Key.laps: 2,
-            Key.duration: 3.0,
+            Key.duration: 3.1,
             Key.onboarded: false,
         ])
         self.effectEnabled = defaults.bool(forKey: Key.enabled)
