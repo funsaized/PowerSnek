@@ -101,6 +101,27 @@ private func pathElements(_ path: CGPath) -> [PathElement] {
     return result
 }
 
+/// Kept out of the `applyWithBlock` closure: inlining these Bézier
+/// expressions makes Swift 6 type-checking blow past its time budget.
+private func quadPoint(_ t: CGFloat, _ p0: CGPoint, _ c: CGPoint, _ p1: CGPoint) -> CGPoint {
+    let mt: CGFloat = 1 - t
+    let a: CGFloat = mt * mt
+    let b: CGFloat = 2 * mt * t
+    let d: CGFloat = t * t
+    return CGPoint(x: a * p0.x + b * c.x + d * p1.x,
+                   y: a * p0.y + b * c.y + d * p1.y)
+}
+
+private func cubicPoint(_ t: CGFloat, _ p0: CGPoint, _ c1: CGPoint, _ c2: CGPoint, _ p1: CGPoint) -> CGPoint {
+    let mt: CGFloat = 1 - t
+    let a: CGFloat = mt * mt * mt
+    let b: CGFloat = 3 * mt * mt * t
+    let c: CGFloat = 3 * mt * t * t
+    let d: CGFloat = t * t * t
+    return CGPoint(x: a * p0.x + b * c1.x + c * c2.x + d * p1.x,
+                   y: a * p0.y + b * c1.y + c * c2.y + d * p1.y)
+}
+
 /// Flattens curves into sampled points so lengths/positions can be
 /// measured independently of the analytic bookkeeping under test.
 private func flattenedPoints(_ path: CGPath, samplesPerCurve: Int = 64) -> [CGPoint] {
@@ -116,17 +137,14 @@ private func flattenedPoints(_ path: CGPath, samplesPerCurve: Int = 64) -> [CGPo
         case .addQuadCurveToPoint:
             let p0 = pts.last ?? .zero, c = e.points[0], p1 = e.points[1]
             for i in 1...samplesPerCurve {
-                let t = CGFloat(i) / CGFloat(samplesPerCurve), mt = 1 - t
-                pts.append(CGPoint(x: mt * mt * p0.x + 2 * mt * t * c.x + t * t * p1.x,
-                                   y: mt * mt * p0.y + 2 * mt * t * c.y + t * t * p1.y))
+                let t = CGFloat(i) / CGFloat(samplesPerCurve)
+                pts.append(quadPoint(t, p0, c, p1))
             }
         case .addCurveToPoint:
             let p0 = pts.last ?? .zero, c1 = e.points[0], c2 = e.points[1], p1 = e.points[2]
             for i in 1...samplesPerCurve {
-                let t = CGFloat(i) / CGFloat(samplesPerCurve), mt = 1 - t
-                pts.append(CGPoint(
-                    x: mt * mt * mt * p0.x + 3 * mt * mt * t * c1.x + 3 * mt * t * t * c2.x + t * t * t * p1.x,
-                    y: mt * mt * mt * p0.y + 3 * mt * mt * t * c1.y + 3 * mt * t * t * c2.y + t * t * t * p1.y))
+                let t = CGFloat(i) / CGFloat(samplesPerCurve)
+                pts.append(cubicPoint(t, p0, c1, c2, p1))
             }
         case .closeSubpath:
             pts.append(start)
