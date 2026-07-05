@@ -66,12 +66,18 @@ public enum CometMath {
         min(trailMaxFraction, e) * min(1, max(0, total - e) / collapseFraction)
     }
 
+    /// Total sweep distance in perimeter-lengths.
+    public static func totalDistance(laps: Int, landingFraction: Double) -> Double {
+        Double(max(1, laps)) + landingFraction
+    }
+
     /// Total sweep duration: scales with distance so the speed stays
     /// constant across lap counts, calibrated so the default 2-lap sweep
-    /// takes `lapDuration` seconds.
+    /// takes `lapDuration` seconds. Floors `lapDuration` so a zeroed
+    /// default can't produce NaN.
     public static func travelDuration(lapDuration: Double, laps: Int, landingFraction: Double) -> Double {
-        let distance = Double(max(1, laps)) + landingFraction
-        return lapDuration * distance / (calibrationLaps + landingFraction)
+        let distance = totalDistance(laps: laps, landingFraction: landingFraction)
+        return max(0.1, lapDuration) * distance / (calibrationLaps + landingFraction)
     }
 }
 

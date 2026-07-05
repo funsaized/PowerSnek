@@ -54,6 +54,11 @@ final class CometMathTests: XCTestCase {
         XCTAssertEqual(d4 / d2, (4 + 0.46) / (2 + 0.46), accuracy: 1e-9)
     }
 
+    func test_travelDuration_floorsNonPositiveLapDuration() {
+        XCTAssertEqual(CometMath.travelDuration(lapDuration: 0, laps: 2, landingFraction: 0.46),
+                       0.1, accuracy: 1e-9)
+    }
+
     // Finale envelopes
     func test_finale_startState() {
         let f = FinaleState.at(0)

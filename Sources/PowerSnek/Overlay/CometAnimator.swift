@@ -62,7 +62,7 @@ public final class CometAnimator {
         self.palette = CometPalette(base: color)
         self.segments = palette.trailProfile()
         let frac = Double(outline.landingFraction)
-        self.totalDistance = Double(max(1, laps)) + frac
+        self.totalDistance = CometMath.totalDistance(laps: laps, landingFraction: frac)
         self.travel = CometMath.travelDuration(lapDuration: lapDuration,
                                                laps: laps, landingFraction: frac)
         self.completion = completion

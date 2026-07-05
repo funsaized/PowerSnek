@@ -76,7 +76,7 @@ Testable functions/constants mirroring the reference: `easedProgress` (`wm`), `e
 ### 3. `CometAnimator` (rewritten)
 
 - Builds layers once on the host: 24 trail-core `CAShapeLayer`s + 24 trail-halo layers inside a halo group, head core + head glow, rim core + rim halo group, flash and glint layers, breath glows.
-- **Glow rendering**: halo/glow groups use `CALayer.filters` with `CIGaussianBlur` (radius × s), which macOS supports; breath glows and the flash use radial `CAGradientLayer`s (no filter needed). If the blur filter fails to render in the shielding-level overlay window (verified visually via the menu-bar test command during implementation), fall back to shadow-based glow (`shadowRadius` = blur × s) as the current code does.
+- **Glow rendering**: halo/glow groups use `CALayer.filters` with `CIGaussianBlur` (radius × s), which macOS supports; breath glows and the flash use radial `CAGradientLayer`s (no filter needed) **[implementation note: shipped as solid `CALayer`s with `CIGaussianBlur` filters instead, matching the halo/glow groups — verified live]**. If the blur filter fails to render in the shielding-level overlay window (verified visually via the menu-bar test command during implementation), fall back to shadow-based glow (`shadowRadius` = blur × s) as the current code does.
 - **Driver**: `NSView.displayLink(target:selector:)` (macOS 14+) owned by the animator; each tick computes phase from `performance-now`-style timestamps and sets `lineDashPattern`/`lineDashPhase`/`lineWidth`/`opacity` (and breath/flash frames) inside `CATransaction` with actions disabled. Dash lengths are in absolute path units (`fraction × totalLength`).
 - Phases: travel → finale → invalidate display link, call completion. The completion contract with `AppController` (always called exactly once, including the degenerate-path guard) is preserved.
 - API: `run(on:outline:color:laps:sweepDuration:completion:)`.
@@ -101,3 +101,14 @@ Testable functions/constants mirroring the reference: `easedProgress` (`wm`), `e
 ## Out of scope
 
 - Reduce-motion accessibility variant, the website's loop/rest mode, changing the default comet color hex, settings UI changes.
+
+## Post-verification tuning (2026-07-05)
+
+During visual verification the following deviations from this spec were made and approved by the user:
+
+- `flashBlur` tightened from the reference's 10 to **3**.
+- `breathABlur` tightened from the reference's 26 to **10**.
+- Breath A peak opacity raised from the reference's 0.6 to **0.72**.
+- Breath envelope steepened from a plain `sin` to **`sin^0.75`** (faster attack, larger hard-white core).
+- Glint radius raised from the reference's 9 to **14**, and it now fades out by **u = 0.25** instead of lingering through the full pulse.
+- The reference's second, tighter breath glow (**breathB**) was removed — it read as a stray green dot at the pulse's center.

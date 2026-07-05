@@ -62,6 +62,8 @@ private struct PathTracer {
 
     mutating func corner(_ tangent: CGPoint, _ end: CGPoint, radius: CGFloat) {
         guard radius > 0 else {
+            // Invariant: callers always pass tangent == end whenever the
+            // radius can clamp to 0, so this line-to-tangent fallback is exact.
             line(to: tangent)
             return
         }
@@ -146,6 +148,7 @@ public enum PerimeterPathBuilder {
             rimLength = rim.length
 
             // Entry corner + left wall + floor corner + half the floor.
+            // Keep in sync with traceNotch's segment order (verified by ScreenOutlineTests).
             landingLength = lengthAtNotchEntry
                 + .pi * ic / 2
                 + ((top - ic) - (notchBottom + ic))
