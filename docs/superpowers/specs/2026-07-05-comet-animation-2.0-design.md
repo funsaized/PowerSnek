@@ -112,3 +112,11 @@ During visual verification the following deviations from this spec were made and
 - Breath envelope steepened from a plain `sin` to **`sin^0.75`** (faster attack, larger hard-white core).
 - Glint radius raised from the reference's 9 to **14**, and it now fades out by **u = 0.25** instead of lingering through the full pulse.
 - The reference's second, tighter breath glow (**breathB**) was removed — it read as a stray green dot at the pulse's center.
+
+## Motion and rendering polish (2026-07-09)
+
+- The whole-trip smootherstep was replaced by a continuous-velocity launch → steady cruise → magnetic-capture curve. Launch reaches cruise in at most 140 ms; capture occupies the final 320 ms.
+- The landed head now crossfades into the flash for 110 ms instead of disappearing at the travel/finale boundary.
+- Flash and breath layers use radial gradients with screen blending instead of blurred solid fills. The breath uses a hollow-hot profile to avoid a flat colored blob over the notch.
+- Layer `contentsScale` follows each display's backing scale, and visual scale is clamped to `0.8...1.35` for unusually small or ultrawide displays.
+- Constant trail widths and opacities are configured once. Trail visibility and impact-head cleanup now change only at phase boundaries rather than on every display-link tick.

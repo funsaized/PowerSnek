@@ -3,30 +3,44 @@ import XCTest
 
 final class CometMathTests: XCTestCase {
 
-    // Easing: 0.92·smootherstep + 0.08·linear
-    func test_easedProgress_endpointsAndMidpoint() {
-        XCTAssertEqual(CometMath.easedProgress(0), 0, accuracy: 1e-9)
-        XCTAssertEqual(CometMath.easedProgress(1), 1, accuracy: 1e-9)
-        XCTAssertEqual(CometMath.easedProgress(0.5), 0.5, accuracy: 1e-9)
+    func test_travelProgress_launchesCruisesAndCaptures() {
+        let duration = 3.1
+        XCTAssertEqual(CometMath.travelProgress(elapsed: 0, duration: duration), 0, accuracy: 1e-9)
+        XCTAssertEqual(CometMath.travelProgress(elapsed: duration, duration: duration), 1, accuracy: 1e-9)
+
+        let dt = 0.01
+        let launchSpeed = (CometMath.travelProgress(elapsed: dt, duration: duration)
+            - CometMath.travelProgress(elapsed: 0, duration: duration)) / dt
+        let cruiseSpeed = (CometMath.travelProgress(elapsed: 1 + dt, duration: duration)
+            - CometMath.travelProgress(elapsed: 1, duration: duration)) / dt
+        let landingSpeed = (CometMath.travelProgress(elapsed: duration, duration: duration)
+            - CometMath.travelProgress(elapsed: duration - dt, duration: duration)) / dt
+
+        XCTAssertGreaterThan(cruiseSpeed, launchSpeed * 2)
+        XCTAssertGreaterThan(cruiseSpeed, landingSpeed * 5)
     }
 
-    func test_easedProgress_monotonicallyIncreasing() {
-        var prev = -1.0
-        for i in 0...100 {
-            let v = CometMath.easedProgress(Double(i) / 100)
-            XCTAssertGreaterThan(v, prev)
-            prev = v
+    func test_travelProgress_isMonotonic() {
+        var previous = -1.0
+        for i in 0...500 {
+            let value = CometMath.travelProgress(elapsed: 3.1 * Double(i) / 500, duration: 3.1)
+            XCTAssertGreaterThan(value, previous)
+            previous = value
         }
     }
 
-    func test_easedProgress_fastMiddleSlowEnds() {
-        let dt = 0.01
-        let launch = (CometMath.easedProgress(dt) - CometMath.easedProgress(0)) / dt
-        let mid = (CometMath.easedProgress(0.5 + dt / 2) - CometMath.easedProgress(0.5 - dt / 2)) / dt
-        let arrival = (CometMath.easedProgress(1) - CometMath.easedProgress(1 - dt)) / dt
-        XCTAssertGreaterThan(mid, 1.5)     // sprints through the middle
-        XCTAssertLessThan(launch, 0.2)     // gentle launch
-        XCTAssertLessThan(arrival, 0.2)    // decelerating arrival
+    func test_travelProgress_cruiseHasConstantVelocity() {
+        let first = CometMath.travelProgress(elapsed: 1.2, duration: 3.1)
+            - CometMath.travelProgress(elapsed: 1.0, duration: 3.1)
+        let second = CometMath.travelProgress(elapsed: 1.8, duration: 3.1)
+            - CometMath.travelProgress(elapsed: 1.6, duration: 3.1)
+        XCTAssertEqual(first, second, accuracy: 1e-9)
+    }
+
+    func test_visualScale_isClampedForExtremeDisplayWidths() {
+        XCTAssertEqual(CometMath.visualScale(forScreenWidth: 800), 0.8, accuracy: 1e-9)
+        XCTAssertEqual(CometMath.visualScale(forScreenWidth: 1600), 1, accuracy: 1e-9)
+        XCTAssertEqual(CometMath.visualScale(forScreenWidth: 4000), 1.35, accuracy: 1e-9)
     }
 
     func test_trailLength_growsThenCollapsesToZeroAtLanding() {

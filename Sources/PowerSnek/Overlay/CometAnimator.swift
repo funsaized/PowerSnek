@@ -2,10 +2,9 @@ import AppKit
 import PowerSnekKit
 import QuartzCore
 
-/// Drives the Comet 2.0 animation: a CADisplayLink ticks the reference
-/// per-frame math — an eased sweep that launches from the bottom-left,
-/// laps the screen clockwise, and decelerates into a landing on the
-/// notch — then a flash / rim-glow / breathing-pulse finale.
+/// Drives the Comet 2.0 animation: a CADisplayLink ticks a launch, steady
+/// cruise, and magnetic-capture sweep around the display, followed by a
+/// seamless flash / rim-glow / breathing-pulse finale.
 @MainActor
 public final class CometAnimator {
 
@@ -29,6 +28,7 @@ public final class CometAnimator {
     private let view: NSView
     private let outline: ScreenOutline
     private let scale: CGFloat
+    private let contentsScale: CGFloat
     private let palette: CometPalette
     private let segments: [TrailSegment]
     private let travel: Double
@@ -37,6 +37,8 @@ public final class CometAnimator {
 
     private var link: CADisplayLink?
     private var startTime: CFTimeInterval?
+    private var hasEnteredFinale = false
+    private var hasHiddenImpactHead = false
 
     // Layers, bottom to top (matching the reference stacking order).
     private var trailHalos: [CAShapeLayer] = []
@@ -45,11 +47,11 @@ public final class CometAnimator {
     private let headGlowGroup = CALayer()
     private var headGlow = CAShapeLayer()
     private var headCore = CAShapeLayer()
-    private let breathA = CALayer()
+    private let breathA = CAGradientLayer()
     private let rimHaloGroup = CALayer()
     private var rimHalo: CAShapeLayer?
     private var rimCore: CAShapeLayer?
-    private let flash = CALayer()
+    private let flash = CAGradientLayer()
     private let glint = CALayer()
 
     private init(host: CALayer, view: NSView, outline: ScreenOutline, color: NSColor,
@@ -58,7 +60,8 @@ public final class CometAnimator {
         self.host = host
         self.view = view
         self.outline = outline
-        self.scale = CometMath.scale(forScreenWidth: view.bounds.width)
+        self.scale = CometMath.visualScale(forScreenWidth: view.bounds.width)
+        self.contentsScale = view.window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2
         self.palette = CometPalette(base: color)
         self.segments = palette.trailProfile()
         let frac = Double(outline.landingFraction)
@@ -95,6 +98,14 @@ public final class CometAnimator {
         if t <= travel {
             renderTravel(t)
         } else if t <= travel + CometMath.finaleDuration {
+            enterFinaleIfNeeded()
+            let impactTime = t - travel
+            if impactTime < CometMath.impactOverlapDuration {
+                let fade = 1 - CometMath.easeOutQuad(impactTime / CometMath.impactOverlapDuration)
+                renderImpactHead(opacity: fade)
+            } else {
+                hideImpactHeadIfNeeded()
+            }
             renderFinale((t - travel) / CometMath.finaleDuration)
         } else {
             CATransaction.commit()
@@ -122,6 +133,8 @@ public final class CometAnimator {
                         cap: CAShapeLayerLineCap = .butt) -> CAShapeLayer {
             let s = CAShapeLayer()
             s.frame = host.bounds
+            s.contentsScale = contentsScale
+            s.allowsEdgeAntialiasing = true
             s.path = path
             s.fillColor = nil
             s.strokeColor = color.cgColor
@@ -133,6 +146,7 @@ public final class CometAnimator {
         }
         func blur(_ layer: CALayer, radius: CGFloat) {
             layer.masksToBounds = false
+            layer.contentsScale = contentsScale
             if let f = CIFilter(name: "CIGaussianBlur") {
                 f.setValue(radius, forKey: kCIInputRadiusKey)
                 layer.filters = [f]
@@ -140,10 +154,12 @@ public final class CometAnimator {
         }
 
         trailHaloGroup.frame = host.bounds
+        trailHaloGroup.compositingFilter = "screenBlendMode"
         blur(trailHaloGroup, radius: CometMath.trailHaloBlur * scale)
         for seg in segments {
             let halo = makeStroke(outline.path, palette.base,
                                   width: seg.width * CometMath.trailHaloWidthRatio * scale)
+            halo.opacity = Float(seg.alpha * CometMath.trailHaloAlphaRatio)
             trailHaloGroup.addSublayer(halo)
             trailHalos.append(halo)
         }
@@ -151,11 +167,13 @@ public final class CometAnimator {
 
         for seg in segments {
             let core = makeStroke(outline.path, seg.color, width: seg.width * scale)
+            core.opacity = Float(seg.alpha)
             host.addSublayer(core)
             trailCores.append(core)
         }
 
         headGlowGroup.frame = host.bounds
+        headGlowGroup.compositingFilter = "screenBlendMode"
         blur(headGlowGroup, radius: CometMath.headGlowBlur * scale)
         headGlow = makeStroke(outline.path, palette.bright,
                               width: CometMath.headGlowWidth * scale, cap: .round)
@@ -166,14 +184,24 @@ public final class CometAnimator {
                               width: CometMath.headCoreWidth * scale, cap: .round)
         host.addSublayer(headCore)
 
-        breathA.backgroundColor = palette.base.cgColor
-        breathA.cornerRadius = 30 * scale
+        breathA.type = .radial
+        breathA.startPoint = CGPoint(x: 0.5, y: 0.5)
+        breathA.endPoint = CGPoint(x: 1, y: 1)
+        breathA.colors = [
+            palette.bright.withAlphaComponent(0.08).cgColor,
+            palette.bright.withAlphaComponent(0.3).cgColor,
+            palette.base.withAlphaComponent(0.14).cgColor,
+            palette.base.withAlphaComponent(0).cgColor,
+        ]
+        breathA.locations = [0, 0.24, 0.62, 1]
+        breathA.contentsScale = contentsScale
+        breathA.compositingFilter = "screenBlendMode"
         breathA.opacity = 0
-        blur(breathA, radius: CometMath.breathABlur * scale)
         host.addSublayer(breathA)
 
         if let rim = outline.rimPath {
             rimHaloGroup.frame = host.bounds
+            rimHaloGroup.compositingFilter = "screenBlendMode"
             blur(rimHaloGroup, radius: CometMath.rimHaloBlur * scale)
             let halo = makeStroke(rim, palette.bright,
                                   width: CometMath.rimHaloWidth * scale, cap: .round)
@@ -186,14 +214,30 @@ public final class CometAnimator {
             rimCore = rcore
         }
 
-        flash.backgroundColor = NSColor.white.cgColor
+        flash.type = .radial
+        flash.startPoint = CGPoint(x: 0.5, y: 0.5)
+        flash.endPoint = CGPoint(x: 1, y: 1)
+        flash.colors = [
+            NSColor.white.cgColor,
+            NSColor.white.withAlphaComponent(0.5).cgColor,
+            NSColor.white.withAlphaComponent(0).cgColor,
+        ]
+        flash.locations = [0, 0.28, 1]
+        flash.contentsScale = contentsScale
+        flash.compositingFilter = "screenBlendMode"
         flash.opacity = 0
-        blur(flash, radius: CometMath.flashBlur * scale)
         host.addSublayer(flash)
 
         glint.backgroundColor = NSColor.white.cgColor
+        glint.contentsScale = contentsScale
+        glint.compositingFilter = "screenBlendMode"
         glint.opacity = 0
         host.addSublayer(glint)
+
+        // Prime the travel layers before the first display-link tick so no
+        // full-path flash can occur between ordering the window front and the
+        // first frame.
+        renderTravel(0)
     }
 
     // MARK: - Per-frame rendering
@@ -204,14 +248,11 @@ public final class CometAnimator {
 
     /// Shows a dash segment covering [start, start+length] (perimeter
     /// fractions; wraps across the path start automatically).
-    private func setDash(_ layer: CAShapeLayer, start: Double, length: Double,
-                         width: CGFloat, opacity: Float) {
+    private func setDash(_ layer: CAShapeLayer, start: Double, length: Double) {
         let total = Double(outline.totalLength)
         let len = max(length, 1e-5) * total
         layer.lineDashPattern = [NSNumber(value: len), NSNumber(value: total - len)]
         layer.lineDashPhase = -CGFloat(wrap(start) * total)
-        layer.lineWidth = width
-        layer.opacity = opacity
     }
 
     private func setCircle(_ layer: CALayer, center: CGPoint, radius: CGFloat) {
@@ -221,7 +262,7 @@ public final class CometAnimator {
     }
 
     private func renderTravel(_ t: Double) {
-        let e = totalDistance * CometMath.easedProgress(t / travel)
+        let e = totalDistance * CometMath.travelProgress(elapsed: t, duration: travel)
         let head = wrap(e)
         let trail = CometMath.trailLength(progress: e, total: totalDistance)
         let throb = CGFloat(CometMath.throb(at: t))
@@ -230,24 +271,44 @@ public final class CometAnimator {
         for i in 0..<n {
             let far = Double(i + 1) / Double(n) * trail
             let near = Double(i) / Double(n) * trail
-            let seg = segments[i]
-            setDash(trailCores[i], start: head - far, length: far - near,
-                    width: seg.width * scale, opacity: Float(seg.alpha))
-            setDash(trailHalos[i], start: head - far, length: far - near,
-                    width: seg.width * CometMath.trailHaloWidthRatio * scale,
-                    opacity: Float(seg.alpha * CometMath.trailHaloAlphaRatio))
+            let core = trailCores[i]
+            setDash(core, start: head - far, length: far - near)
+
+            let halo = trailHalos[i]
+            setDash(halo, start: head - far, length: far - near)
         }
-        setDash(headGlow, start: head - CometMath.headDashFraction,
-                length: CometMath.headDashFraction,
-                width: CometMath.headGlowWidth * scale * throb, opacity: 0.85)
-        setDash(headCore, start: head - CometMath.headDashFraction,
-                length: CometMath.headDashFraction,
-                width: CometMath.headCoreWidth * scale * throb, opacity: 1)
-        setFinaleHidden()
+        setHead(at: head, throb: throb, opacity: 1)
+    }
+
+    private func setHead(at position: Double, throb: CGFloat, opacity: Double) {
+        headGlow.lineWidth = CometMath.headGlowWidth * scale * throb
+        headGlow.opacity = Float(0.85 * opacity)
+        setDash(headGlow, start: position - CometMath.headDashFraction,
+                length: CometMath.headDashFraction)
+        headCore.lineWidth = CometMath.headCoreWidth * scale * throb
+        headCore.opacity = Float(opacity)
+        setDash(headCore, start: position - CometMath.headDashFraction,
+                length: CometMath.headDashFraction)
+    }
+
+    private func renderImpactHead(opacity: Double) {
+        setHead(at: wrap(totalDistance), throb: 1, opacity: opacity)
+    }
+
+    private func enterFinaleIfNeeded() {
+        guard !hasEnteredFinale else { return }
+        hasEnteredFinale = true
+        (trailCores + trailHalos).forEach { $0.opacity = 0 }
+    }
+
+    private func hideImpactHeadIfNeeded() {
+        guard !hasHiddenImpactHead else { return }
+        hasHiddenImpactHead = true
+        headCore.opacity = 0
+        headGlow.opacity = 0
     }
 
     private func renderFinale(_ u: Double) {
-        setTravelHidden()
         let f = FinaleState.at(u)
 
         setCircle(flash, center: outline.landingPoint, radius: f.flashRadius * scale)
@@ -273,25 +334,11 @@ public final class CometAnimator {
         let centerY = (host.bounds.height + nr.minY) / 2 - 6 * scale
         breathA.frame = CGRect(x: nr.midX - width / 2, y: centerY - height / 2,
                                width: width, height: height)
-        // Peak opacity raised from the reference (0.6) alongside the tighter
-        // bloom blurs for a more pronounced landing pulse.
-        breathA.opacity = Float(0.72 * o * f.fade)
-        // The reference's second, tighter breath glow is intentionally
-        // omitted: it read as a stray green dot at the pulse's center
-        // (user feedback during visual verification).
+        // The radial color stops form a hollow-hot halo instead of the flat
+        // center produced by a solid layer plus Gaussian blur.
+        breathA.opacity = Float(0.9 * o * f.fade)
 
         setCircle(glint, center: outline.landingPoint, radius: f.glintRadius * scale)
         glint.opacity = Float(f.glintOpacity)
-    }
-
-    private func setTravelHidden() {
-        (trailCores + trailHalos + [headCore, headGlow]).forEach { $0.opacity = 0 }
-    }
-
-    private func setFinaleHidden() {
-        var layers: [CALayer] = [flash, glint, breathA]
-        rimHalo.map { layers.append($0) }
-        rimCore.map { layers.append($0) }
-        layers.forEach { $0.opacity = 0 }
     }
 }

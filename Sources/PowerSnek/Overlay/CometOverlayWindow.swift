@@ -17,7 +17,11 @@ public final class CometOverlayWindow: NSWindow {
         let view = NSView(frame: CGRect(origin: .zero, size: screen.frame.size))
         view.wantsLayer = true
         if let root = view.layer {
+            root.contentsScale = screen.backingScaleFactor
+            root.allowsEdgeAntialiasing = true
             hostLayer.frame = view.bounds
+            hostLayer.contentsScale = screen.backingScaleFactor
+            hostLayer.allowsEdgeAntialiasing = true
             root.addSublayer(hostLayer)
         }
         contentView = view

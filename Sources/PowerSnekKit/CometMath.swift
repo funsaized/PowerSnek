@@ -1,10 +1,10 @@
 import CoreGraphics
 import Foundation
 
-/// Pure math for the Comet 2.0 animation, ported from the reference
-/// implementation (see docs/superpowers/specs/2026-07-05-comet-animation-2.0-design.md).
+/// Pure math for the Comet 2.0 animation, based on the reference implementation
+/// and tuned for a faster launch, steady cruise, and magnetic landing.
 /// Width-like constants are in reference units calibrated to a 1600-wide
-/// screen; multiply by `scale(forScreenWidth:)` before rendering.
+/// screen; geometry uses `scale` and visible effects use `visualScale`.
 public enum CometMath {
 
     public static let referenceScreenWidth: CGFloat = 1600
@@ -14,6 +14,7 @@ public enum CometMath {
     public static let trailMaxFraction: Double = 0.15
     public static let collapseFraction: Double = 0.3
     public static let finaleDuration: Double = 0.9
+    public static let impactOverlapDuration: Double = 0.11
     /// Lap count the speed slider is calibrated against ("2 laps take
     /// `lapDuration` seconds").
     public static let calibrationLaps: Double = 2
@@ -31,22 +32,55 @@ public enum CometMath {
     public static let trailHaloBlur: CGFloat = 9
     public static let headGlowBlur: CGFloat = 7
     public static let rimHaloBlur: CGFloat = 8
-    // Bloom blurs tightened from the reference (10/26/14) for a crisper,
-    // punchier landing per user feedback during visual verification.
-    public static let flashBlur: CGFloat = 3
-    public static let breathABlur: CGFloat = 10
-
     public static func scale(forScreenWidth width: CGFloat) -> CGFloat {
         width / referenceScreenWidth
     }
 
+    /// Rendering-only scale. Geometry continues to use the exact reference
+    /// ratio while strokes and glows stay tasteful on extreme display sizes.
+    public static func visualScale(forScreenWidth width: CGFloat) -> CGFloat {
+        min(max(scale(forScreenWidth: width), 0.8), 1.35)
+    }
+
     public static func clamp01(_ u: Double) -> Double { min(max(u, 0), 1) }
 
-    /// Travel easing: smootherstep blended with 8 % linear — slow launch,
-    /// fast mid-sweep, decelerating arrival that never fully stalls.
-    public static func easedProgress(_ u: Double) -> Double {
-        let x = clamp01(u)
-        return 0.92 * (x * x * x * (x * (x * 6 - 15) + 10)) + 0.08 * x
+    /// Launch → cruise → magnetic-capture motion. Unlike applying one easing
+    /// curve to the whole trip, this reaches cruising speed quickly, stays
+    /// confident through the laps, then decelerates only near the landing.
+    /// The velocity is continuous at both phase boundaries and never reaches
+    /// zero, so a late display-link tick cannot make the comet appear stuck.
+    public static func travelProgress(elapsed: Double, duration: Double) -> Double {
+        let d = max(0.1, duration)
+        let u = clamp01(elapsed / d)
+        let launch = min(0.18, 0.14 / d)
+        let capture = min(0.28, 0.32 / d)
+        let launchVelocity = 0.32
+        let landingVelocity = 0.1
+
+        func integratedSmoothstep(_ x: Double) -> Double {
+            let t = clamp01(x)
+            return t * t * t - 0.5 * t * t * t * t
+        }
+
+        let launchArea = launch * (launchVelocity + (1 - launchVelocity) * 0.5)
+        let cruiseEnd = 1 - capture
+        let cruiseArea = cruiseEnd - launch
+        let captureArea = capture * (1 - (1 - landingVelocity) * 0.5)
+        let totalArea = launchArea + cruiseArea + captureArea
+
+        let area: Double
+        if u < launch {
+            let x = u / launch
+            area = launch * (launchVelocity * x
+                + (1 - launchVelocity) * integratedSmoothstep(x))
+        } else if u < cruiseEnd {
+            area = launchArea + (u - launch)
+        } else {
+            let x = (u - cruiseEnd) / capture
+            area = launchArea + cruiseArea
+                + capture * (x - (1 - landingVelocity) * integratedSmoothstep(x))
+        }
+        return clamp01(area / totalArea)
     }
 
     public static func easeOutQuad(_ u: Double) -> Double {
