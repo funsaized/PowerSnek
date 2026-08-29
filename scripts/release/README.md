@@ -2,12 +2,11 @@
 
 `.github/workflows/release.yml` builds a universal `PowerSnek.app`, signs it with
 Developer ID + Hardened Runtime, packages a DMG, notarizes and staples it,
-checksums it, and publishes a **draft** GitHub Release. It runs on `v*` tags or
-via **Run workflow** (workflow_dispatch).
+checksums it, and publishes a verified **draft** GitHub Release for canonical
+`vMAJOR.MINOR.PATCH` tags.
 
-Signing and notarization are **secret-gated** (like the build): if the secrets
-are absent the workflow still produces an **unsigned** DMG so the pipeline is
-never red just because credentials aren't configured yet.
+Tagged releases fail when signing or notarization secrets are absent. The local
+scripts still produce unsigned artifacts when no signing identity is provided.
 
 ## Required repository secrets
 

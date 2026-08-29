@@ -86,17 +86,18 @@ project conventions, and PR expectations.
 
 Tag-triggered, signed and notarized DMGs via
 [`.github/workflows/release.yml`](.github/workflows/release.yml). Signing and
-notarization are secret-gated; see
+notarization secrets are required; see
 [`scripts/release/README.md`](scripts/release/README.md) for the required
 secrets. To cut a release:
 
 ```bash
-git tag v0.1.0 && git push origin v0.1.0
+# After updating MARKETING_VERSION and CURRENT_PROJECT_VERSION in project.yml:
+git tag v0.2.1 && git push origin v0.2.1
 ```
 
 This builds a universal binary, signs it with Developer ID and Hardened Runtime,
-notarizes and staples it, and publishes a draft GitHub Release with the DMG
-and its checksum.
+notarizes and staples it, and publishes a draft GitHub Release with a verified
+DMG and checksum attached to the exact tag.
 
 ## Requirements
 
