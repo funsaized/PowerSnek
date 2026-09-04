@@ -1,4 +1,6 @@
 @import "tailwindcss";
+@import "@fontsource-variable/space-grotesk";
+@import "@fontsource-variable/plus-jakarta-sans";
 
 @theme {
   --color-snek-black: #050504;
@@ -18,8 +20,8 @@
   --color-body: #5c6347;
   --color-body-muted: #6a6f57;
 
-  --font-display: var(--font-space-grotesk), system-ui, sans-serif;
-  --font-sans: var(--font-plus-jakarta), system-ui, sans-serif;
+  --font-display: "Space Grotesk Variable", system-ui, sans-serif;
+  --font-sans: "Plus Jakarta Sans Variable", system-ui, sans-serif;
 
   --text-h1: 55px;
   --text-h1--line-height: 1.03;
@@ -124,7 +126,7 @@ body {
 }
 
 body {
-  font-family: var(--font-plus-jakarta), system-ui, sans-serif;
+  font-family: var(--font-sans);
 }
 
 a {

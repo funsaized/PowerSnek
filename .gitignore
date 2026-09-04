@@ -3,7 +3,10 @@ build/
 DerivedData/
 node_modules/
 .next/
+.output/
+.tanstack/
 .vercel/
+*.tsbuildinfo
 .playwright-cli/
 *.xcuserstate
 xcuserdata/

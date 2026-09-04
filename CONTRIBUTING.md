@@ -33,7 +33,7 @@ xcodebuild test -project PowerSnek.xcodeproj -scheme PowerSnek \
   -destination 'platform=macOS' -derivedDataPath build CODE_SIGNING_ALLOWED=NO
 ```
 
-The website lives in `site/`:
+The website lives in `site/` (TanStack Start):
 
 ```bash
 cd site
@@ -41,9 +41,6 @@ npm install
 npm run check
 npm run build
 ```
-
-`npm run build` may need network access because the site uses `next/font` with
-Google Fonts.
 
 ## Project Conventions
 
