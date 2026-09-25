@@ -18,6 +18,9 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     /// The display showing the Settings window, if it is open.
     var screen: NSScreen? { window?.screen }
 
+    /// Settings is on screen (and auto-previews its own changes).
+    var isOpen: Bool { window?.isVisible == true }
+
     /// Show the window, or bring it front if already open (idempotent).
     func show() {
         if let window {

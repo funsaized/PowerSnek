@@ -83,7 +83,8 @@ private struct MenuContent: View {
             get: { settings.styleID },
             set: { id in
                 settings.apply(CelebrationProfile.named(id))
-                env.controller.preview()
+                // An open Settings window previews the change itself.
+                if !env.settingsController.isOpen { env.controller.preview() }
             }
         )) {
             ForEach(CelebrationProfile.all) { Text($0.name).tag($0.id) }
