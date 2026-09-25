@@ -13,8 +13,14 @@ const features: Feature[] = [
   {
     title: "Only when you plug in",
     description:
-      "It fires the instant the charger connects, takes a few laps, then fades on its own.",
+      "It fires the instant the charger connects, takes a few laps, then fades on its own - and sits out full-screen apps and screen shares.",
     icon: "bolt",
+  },
+  {
+    title: "Five styles, plus your battery",
+    description:
+      "Pick Electric, Snek, Aurora, Hyperbolt, or Minimal. After it lands, a quick readout shows your charge.",
+    icon: "sparkle",
   },
   {
     title: "Zero battery cost",
