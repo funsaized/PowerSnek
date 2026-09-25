@@ -16,6 +16,22 @@ final class SettingsStoreTests: XCTestCase {
         XCTAssertEqual(s.lapCount, 2)
         XCTAssertEqual(s.lapDuration, 3.1, accuracy: 0.0001)
         XCTAssertFalse(s.hasCompletedOnboarding)
+        XCTAssertTrue(s.pauseOverFullScreen)
+        XCTAssertTrue(s.hideFromScreenCapture)
+    }
+
+    func test_darkColor_isStoredBrightened() {
+        let d = makeDefaults()
+        let s = SettingsStore(defaults: d)
+        s.cometColorHex = "#000000"
+        XCTAssertEqual(s.cometColorHex, VisibleColor.clampedHex("#000000"))
+        XCTAssertEqual(SettingsStore(defaults: d).cometColorHex, s.cometColorHex)
+    }
+
+    func test_legacyDarkColor_isBrightenedOnLoad() {
+        let d = makeDefaults()
+        d.set("#010101", forKey: "cometColorHex")
+        XCTAssertFalse(VisibleColor.isTooDark(HexColor.nsColor(fromHex: SettingsStore(defaults: d).cometColorHex)!))
     }
 
     func test_persistsAcrossInstances() {

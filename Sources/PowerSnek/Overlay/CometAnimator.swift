@@ -8,20 +8,6 @@ import QuartzCore
 @MainActor
 public final class CometAnimator {
 
-    /// Runs one comet on `host`. Calls `completion` exactly once, even if
-    /// the display link never ticks (watchdog) or the path is degenerate.
-    public static func run(on host: CALayer,
-                           displayLinkView view: NSView,
-                           outline: ScreenOutline,
-                           color: NSColor,
-                           laps: Int,
-                           lapDuration: Double,
-                           completion: @escaping @MainActor () -> Void) {
-        guard outline.totalLength > 1 else { completion(); return }
-        CometAnimator(host: host, view: view, outline: outline, color: color,
-                      laps: laps, lapDuration: lapDuration, completion: completion).start()
-    }
-
     // MARK: - State
 
     private let host: CALayer
@@ -54,24 +40,30 @@ public final class CometAnimator {
     private let flash = CAGradientLayer()
     private let glint = CALayer()
 
-    private init(host: CALayer, view: NSView, outline: ScreenOutline, color: NSColor,
-                 laps: Int, lapDuration: Double,
-                 completion: @escaping @MainActor () -> Void) {
+    /// Prepares one comet for `host`; nothing is drawn until `start`.
+    /// `contentsScale` is the target display's backing scale, passed
+    /// explicitly so mixed 1x/2x setups render each display at its own scale.
+    public init(host: CALayer, view: NSView, outline: ScreenOutline, color: NSColor,
+                laps: Int, lapDuration: Double, contentsScale: CGFloat) {
         self.host = host
         self.view = view
         self.outline = outline
         self.scale = CometMath.visualScale(forScreenWidth: view.bounds.width)
-        self.contentsScale = view.window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2
+        self.contentsScale = contentsScale
         self.palette = CometPalette(base: color)
         self.segments = palette.trailProfile()
         let frac = Double(outline.landingFraction)
         self.totalDistance = CometMath.totalDistance(laps: laps, landingFraction: frac)
         self.travel = CometMath.travelDuration(lapDuration: lapDuration,
                                                laps: laps, landingFraction: frac)
-        self.completion = completion
     }
 
-    private func start() {
+    /// Runs the comet. Calls `completion` exactly once: when the finale ends,
+    /// on `cancel()`, from the watchdog if the display link never ticks, or
+    /// immediately when the path is degenerate.
+    public func start(completion: @escaping @MainActor () -> Void) {
+        self.completion = completion
+        guard outline.totalLength > 1 else { finish(); return }
         buildLayers()
         // The display link retains its target, keeping this animator alive
         // until finish() invalidates it.
@@ -113,6 +105,12 @@ public final class CometAnimator {
             return
         }
         CATransaction.commit()
+    }
+
+    /// Tears the comet down now (display removed or reconfigured, or a
+    /// preview restarting). Safe to call at any time, any number of times.
+    public func cancel() {
+        finish()
     }
 
     private func finish() {

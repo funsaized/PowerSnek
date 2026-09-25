@@ -18,6 +18,12 @@ struct SettingsView: View {
 
             LaunchAtLoginToggle(model: loginItem)
 
+            Toggle("Pause over full-screen apps", isOn: $settings.pauseOverFullScreen)
+                .help("Skips displays showing a full-screen app, video, or presentation.")
+
+            Toggle("Hide from screen recordings & sharing", isOn: $settings.hideFromScreenCapture)
+                .help("Keeps the celebration out of screenshots, recordings, and video calls.")
+
             ColorPicker("Comet color", selection: cometColor, supportsOpacity: false)
 
             Stepper("Laps: \(settings.lapCount)", value: $settings.lapCount, in: 1...5)
