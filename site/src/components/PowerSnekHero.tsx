@@ -74,11 +74,11 @@ export function PowerSnekHero() {
             and traces the notch - a tiny, electric signal that power is flowing.
           </p>
 
-          <div className="feature-list mb-[34px] mt-[30px] flex flex-col gap-5">
+          <ul className="feature-list mb-[34px] mt-[30px] flex list-none flex-col gap-5 p-0">
             {features.map((feature) => (
               <FeatureRow key={feature.title} feature={feature} />
             ))}
-          </div>
+          </ul>
 
           <a
             aria-label={`Download PowerSnek ${LATEST_VERSION} for macOS (disk image, ${DMG_SIZE_MB} MB)`}
@@ -164,7 +164,11 @@ function LogoMark() {
 
 function ProductVisual({ cometSeconds }: { cometSeconds: number }) {
   return (
-    <div className="relative">
+    <div
+      aria-label="Illustration: a green comet racing around a MacBook screen and tracing its notch"
+      className="relative"
+      role="img"
+    >
       <div className="product-scale bg-chassis aspect-[524/366] w-[524px] max-w-[86vw] animate-float rounded-chassis p-2 shadow-chassis">
         <div className="bg-screen relative h-full w-full overflow-hidden rounded-screen">
           <div className="absolute left-1/2 top-0 h-[25px] w-[130px] -translate-x-1/2 rounded-b-[13px] bg-snek-black" />
@@ -310,15 +314,15 @@ function Badge() {
 
 function FeatureRow({ feature }: { feature: Feature }) {
   return (
-    <div className="flex items-start gap-3.5">
+    <li className="flex items-start gap-3.5">
       <span className="bg-chip flex h-10 w-10 flex-none items-center justify-center rounded-chip shadow-chip">
         <FeatureIcon icon={feature.icon} />
       </span>
       <div>
-        <div className="text-base font-bold text-[#1c2012]">{feature.title}</div>
-        <div className="text-feature text-body-muted">{feature.description}</div>
+        <h2 className="text-base font-bold text-[#1c2012]">{feature.title}</h2>
+        <p className="text-feature text-body-muted">{feature.description}</p>
       </div>
-    </div>
+    </li>
   );
 }
 
