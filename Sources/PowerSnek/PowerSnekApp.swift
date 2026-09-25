@@ -6,9 +6,11 @@ final class AppEnvironment: ObservableObject {
     static let shared = AppEnvironment()
     let settings = SettingsStore()
     let loginItem = LoginItemModel()
-    lazy var controller = AppController(settings: settings)
-    lazy var updater = UpdateChecker(settings: settings)
-    lazy var settingsController = SettingsWindowController { [unowned self] in
+    lazy var controller: AppController = AppController(settings: settings)
+    lazy var updater: UpdateChecker = UpdateChecker(settings: settings)
+    // Explicit types: the preview closure refers back to settingsController,
+    // which otherwise makes the lazy property's type inference circular.
+    lazy var settingsController: SettingsWindowController = SettingsWindowController { [unowned self] in
         AnyView(SettingsView(onPreview: { [unowned self] in
                     self.controller.preview(on: self.settingsController.screen)
                 })
@@ -16,7 +18,7 @@ final class AppEnvironment: ObservableObject {
                 .environmentObject(self.loginItem)
                 .environmentObject(self.updater))
     }
-    lazy var welcomeController = WelcomeWindowController(
+    lazy var welcomeController: WelcomeWindowController = WelcomeWindowController(
         settings: settings,
         loginItem: loginItem,
         controller: controller,
