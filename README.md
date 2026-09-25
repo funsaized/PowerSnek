@@ -113,7 +113,7 @@ secrets. To cut a release:
 ```bash
 # After updating MARKETING_VERSION and CURRENT_PROJECT_VERSION in project.yml
 # (and LATEST_VERSION in site/src/release.ts once the release is published):
-git tag v0.2.1 && git push origin v0.2.1
+git tag v0.3.0 && git push origin v0.3.0
 ```
 
 This builds a universal binary, signs it with Developer ID and Hardened Runtime,
