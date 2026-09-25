@@ -8,28 +8,32 @@ final class AppEnvironment: ObservableObject {
     // for bindings such as `$env.settings.effectEnabled` in MenuBarExtra, which
     // does not compile if it is `let`. It is never reassigned.
     var settings = SettingsStore()
+    let loginItem = LoginItemModel()
     lazy var controller = AppController(settings: settings)
+    lazy var settingsController = SettingsWindowController { [unowned self] in
+        AnyView(SettingsView()
+            .environmentObject(self.settings)
+            .environmentObject(self.loginItem))
+    }
     lazy var welcomeController = WelcomeWindowController(
         settings: settings,
+        loginItem: loginItem,
         controller: controller,
-        openSettings: AppEnvironment.openSettings
+        openSettings: { [unowned self] in self.settingsController.show() }
     )
     private init() {}
-
-    /// Opens the SwiftUI `Settings` scene from non-SwiftUI (AppKit) contexts.
-    static func openSettings() {
-        if NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil) { return }
-        _ = NSApp.sendAction(Selector(("showPreferencesWindow:")), to: nil, from: nil)
-    }
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    @MainActor
     func applicationDidFinishLaunching(_ notification: Notification) {
         let env = AppEnvironment.shared
         // Start listening for charger connect events.
         env.controller.start()
-        // First launch: show the welcome window once the UI is ready.
+        // First launch: turn on launch-at-login (shown, and reversible, in the
+        // welcome window), then show the welcome window once the UI is ready.
         if !env.settings.hasCompletedOnboarding {
+            env.loginItem.applyFirstRunDefault(hasCompletedOnboarding: false)
             Task { @MainActor in
                 try? await Task.sleep(for: .milliseconds(400))
                 env.welcomeController.show()
@@ -48,15 +52,12 @@ struct PowerSnekApp: App {
             Toggle("Enabled", isOn: $env.settings.effectEnabled)
             Button("Test Animation") { env.controller.runTestAnimation() }
             Divider()
-            SettingsLink { Text("Settings…") }
+            Button("Settings…") { env.settingsController.show() }
+                .keyboardShortcut(",")
             Button("Welcome to PowerSnek") { env.welcomeController.show() }
             Divider()
             Button("Quit PowerSnek") { NSApplication.shared.terminate(nil) }
-        }
-
-        Settings {
-            SettingsView()
-                .environmentObject(env.settings)
+                .keyboardShortcut("q")
         }
     }
 }

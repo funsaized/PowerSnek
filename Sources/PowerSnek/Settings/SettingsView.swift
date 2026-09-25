@@ -3,7 +3,7 @@ import PowerSnekKit
 
 struct SettingsView: View {
     @EnvironmentObject private var settings: SettingsStore
-    @State private var launchAtLogin = LoginItemManager.isEnabled
+    @EnvironmentObject private var loginItem: LoginItemModel
 
     private var cometColor: Binding<Color> {
         Binding(
@@ -16,10 +16,7 @@ struct SettingsView: View {
         Form {
             Toggle("Enable effect", isOn: $settings.effectEnabled)
 
-            Toggle("Launch at login", isOn: $launchAtLogin)
-                .onChange(of: launchAtLogin) { _, newValue in
-                    LoginItemManager.setEnabled(newValue)
-                }
+            LaunchAtLoginToggle(model: loginItem)
 
             ColorPicker("Comet color", selection: cometColor, supportsOpacity: false)
 
@@ -43,6 +40,6 @@ struct SettingsView: View {
         }
         .padding(20)
         .frame(width: 360)
-        .onAppear { launchAtLogin = LoginItemManager.isEnabled }
+        .onAppear { loginItem.refresh() }
     }
 }

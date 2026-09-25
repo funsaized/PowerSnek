@@ -2,14 +2,14 @@ import SwiftUI
 import PowerSnekKit
 
 /// First-run welcome content. Pure view: all side effects arrive as callbacks
-/// (preview / customize / done); launch-at-login is handled locally via
-/// `LoginItemManager`, mirroring `SettingsView`.
+/// (preview / customize / done); launch-at-login goes through the shared
+/// `LoginItemModel`, like `SettingsView`.
 struct WelcomeView: View {
+    @ObservedObject var loginItem: LoginItemModel
     let onPreview: @MainActor () -> Void
     let onCustomize: @MainActor () -> Void
     let onDone: @MainActor () -> Void
 
-    @State private var launchAtLogin = LoginItemManager.isEnabled
     @State private var didAutoPreview = false
 
     private let accent = Color(red: 0.20, green: 1.0, blue: 0.42)   // brand green ≈ #34FF6A
@@ -48,12 +48,11 @@ struct WelcomeView: View {
 
             Divider().padding(.horizontal, 30)
 
-            Toggle("Launch PowerSnek at login", isOn: $launchAtLogin)
+            LaunchAtLoginToggle(model: loginItem,
+                                caption: "PowerSnek has to be running to notice your charger.")
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 30)
                 .padding(.top, 16)
-                .onChange(of: launchAtLogin) { _, newValue in
-                    LoginItemManager.setEnabled(newValue)
-                }
 
             HStack {
                 Button("Customize…") { onCustomize() }
@@ -68,7 +67,7 @@ struct WelcomeView: View {
         }
         .frame(width: 460, height: 540)
         .onAppear {
-            launchAtLogin = LoginItemManager.isEnabled
+            loginItem.refresh()
             guard !didAutoPreview else { return }
             didAutoPreview = true
             Task { @MainActor in
