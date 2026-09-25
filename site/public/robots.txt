@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://powersnek.s11a.com/sitemap.xml
