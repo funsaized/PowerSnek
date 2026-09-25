@@ -8,14 +8,17 @@ import PowerSnekKit
 @MainActor
 final class WelcomeWindowController: NSObject, NSWindowDelegate {
     private let settings: SettingsStore
+    private let loginItem: LoginItemModel
     private let controller: AppController
     private let openSettings: @MainActor () -> Void
     private var window: NSWindow?
 
     init(settings: SettingsStore,
+         loginItem: LoginItemModel,
          controller: AppController,
          openSettings: @escaping @MainActor () -> Void) {
         self.settings = settings
+        self.loginItem = loginItem
         self.controller = controller
         self.openSettings = openSettings
     }
@@ -29,13 +32,15 @@ final class WelcomeWindowController: NSObject, NSWindowDelegate {
         }
 
         let root = WelcomeView(
-            onPreview: { [weak self] in self?.controller.runTestAnimation() },
+            settings: settings,
+            loginItem: loginItem,
+            onPreview: { [weak self] in self?.controller.preview() },
             onCustomize: { [weak self] in self?.openSettings() },
             onDone: { [weak self] in self?.dismiss() }
         )
 
         let win = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 460, height: 540),
+            contentRect: NSRect(x: 0, y: 0, width: 500, height: 560),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
@@ -43,6 +48,7 @@ final class WelcomeWindowController: NSObject, NSWindowDelegate {
         win.title = "Welcome to PowerSnek"
         win.contentView = NSHostingView(rootView: root)
         win.isReleasedWhenClosed = false
+        win.collectionBehavior = [.moveToActiveSpace]
         win.delegate = self
         win.center()
         window = win

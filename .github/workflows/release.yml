@@ -161,18 +161,22 @@ jobs:
           : "${VERSION:?build job did not provide a release version}"
           DMG="PowerSnek-$VERSION.dmg"
           CHECKSUM="$DMG.sha256"
+          # Stable alias so the website can link to
+          # releases/latest/download/PowerSnek.dmg without knowing the version.
+          ALIAS="PowerSnek.dmg"
           test -s "dist/$DMG"
           test -s "dist/$CHECKSUM"
           (cd dist && sha256sum -c "$CHECKSUM")
+          cp "dist/$DMG" "dist/$ALIAS"
 
           if gh release view "$TAG" >/dev/null 2>&1; then
             [[ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" == "true" ]] || {
               echo "refusing to modify published release $TAG"
               exit 1
             }
-            gh release upload "$TAG" "dist/$DMG" "dist/$CHECKSUM" --clobber
+            gh release upload "$TAG" "dist/$DMG" "dist/$CHECKSUM" "dist/$ALIAS" --clobber
           else
-            gh release create "$TAG" "dist/$DMG" "dist/$CHECKSUM" --draft --title "$TAG" \
+            gh release create "$TAG" "dist/$DMG" "dist/$CHECKSUM" "dist/$ALIAS" --draft --title "$TAG" \
               --generate-notes
           fi
 
@@ -188,12 +192,16 @@ jobs:
           : "${VERSION:?build job did not provide a release version}"
           DMG="PowerSnek-$VERSION.dmg"
           CHECKSUM="$DMG.sha256"
+          ALIAS="PowerSnek.dmg"
           RELEASE="$(gh release view "$TAG" --json tagName,isDraft,assets)"
           jq -e --arg tag "$TAG" '($tag | length) > 0 and .tagName == $tag and .isDraft == true' <<< "$RELEASE"
-          jq -e --arg dmg "$DMG" --arg checksum "$CHECKSUM" \
-            'any(.assets[]; .name == $dmg and .size > 0) and any(.assets[]; .name == $checksum and .size > 0)' \
+          jq -e --arg dmg "$DMG" --arg checksum "$CHECKSUM" --arg alias "$ALIAS" \
+            'any(.assets[]; .name == $dmg and .size > 0)
+              and any(.assets[]; .name == $checksum and .size > 0)
+              and any(.assets[]; .name == $alias and .size > 0)' \
             <<< "$RELEASE"
 
           mkdir downloaded
-          gh release download "$TAG" --dir downloaded --pattern "$DMG" --pattern "$CHECKSUM"
+          gh release download "$TAG" --dir downloaded --pattern "$DMG" --pattern "$CHECKSUM" --pattern "$ALIAS"
           (cd downloaded && sha256sum -c "$CHECKSUM")
+          cmp "downloaded/$DMG" "downloaded/$ALIAS"

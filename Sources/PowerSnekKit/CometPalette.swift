@@ -9,13 +9,17 @@ public struct CometPalette {
     public let tail: NSColor
     public let rimCore: NSColor
 
-    public init(base color: NSColor) {
+    /// `tailHueShift` drifts the tail's hue away from the base (0 = one
+    /// color), for styles like Aurora whose trail fades through a gradient.
+    public init(base color: NSColor, tailHueShift: CGFloat = 0) {
         let c = color.usingColorSpace(.sRGB) ?? color
         var h: CGFloat = 0, s: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
         c.getHue(&h, saturation: &s, brightness: &b, alpha: &a)
         base = c
         bright = Self.srgb(hue: h, saturation: min(1, s * 0.78), brightness: min(1, b * 1.13))
-        tail = Self.srgb(hue: h, saturation: min(1, s * 1.09), brightness: b * 0.73)
+        var tailHue = (h + tailHueShift).truncatingRemainder(dividingBy: 1)
+        if tailHue < 0 { tailHue += 1 }
+        tail = Self.srgb(hue: tailHue, saturation: min(1, s * 1.09), brightness: b * 0.73)
         rimCore = Self.lerp(.white, c, 0.15)
     }
 

@@ -75,12 +75,37 @@ export function PowerSnekHero() {
           </div>
 
           <a
+            aria-label={`Download PowerSnek ${LATEST_VERSION} for macOS (disk image, ${DMG_SIZE_MB} MB)`}
             className="download-cta bg-cta inline-flex items-center gap-2.5 rounded-pill px-[30px] py-4 text-base font-semibold no-underline shadow-cta transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_20px_38px_-14px_rgba(40,60,12,.8),0_0_0_1px_rgba(195,251,28,.42)_inset] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-snek-olive"
-            href="https://github.com/funsaized/PowerSnek/releases"
+            href={DMG_URL}
           >
             <BoltIcon className="h-4 w-4 fill-snek-chartreuse" />
             Download free for macOS
           </a>
+          <p className="mt-3.5 text-[13px] leading-relaxed text-body-muted">
+            v{LATEST_VERSION} · {DMG_SIZE_MB} MB · macOS 14+ · Apple silicon &amp; Intel · Signed &amp;
+            notarized
+          </p>
+          <ol className="mt-1.5 flex flex-wrap gap-x-4 text-[13px] text-body-muted">
+            <li>1. Open the download</li>
+            <li>2. Drag PowerSnek to Applications</li>
+            <li>3. Launch it from the menu bar</li>
+          </ol>
+          <p className="mt-2 text-[13px] text-body-muted">
+            <a
+              className="font-semibold text-snek-olive underline underline-offset-2 hover:text-snek-olivedark"
+              href={RELEASES_URL}
+            >
+              All releases
+            </a>
+            {" · "}
+            <a
+              className="font-semibold text-snek-olive underline underline-offset-2 hover:text-snek-olivedark"
+              href={REPO_URL}
+            >
+              Source code
+            </a>
+          </p>
         </section>
       </main>
     </div>
@@ -272,7 +297,7 @@ function Badge() {
   return (
     <span className="inline-flex items-center gap-2 rounded-pill bg-[#e7f7b8] px-3.5 py-[7px] text-badge font-bold text-snek-olivedark shadow-[0_0_0_1px_rgba(120,155,22,.25)]">
       <BoltIcon className="h-[11px] w-[11px] animate-zap fill-snek-olive" />
-      NEW IN 0.2.1
+      NEW IN {LATEST_VERSION}
     </span>
   );
 }
@@ -346,3 +371,5 @@ function BoltIcon({ className }: { className?: string }) {
   );
 }
 import type { CSSProperties, ReactNode } from "react";
+
+import { DMG_SIZE_MB, DMG_URL, LATEST_VERSION, RELEASES_URL, REPO_URL } from "../release";
