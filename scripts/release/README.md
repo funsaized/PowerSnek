@@ -32,15 +32,15 @@ Add these under **Settings → Secrets and variables → Actions**.
 ```bash
 # Unsigned (no secrets needed) — produces dist/PowerSnek-<version>.dmg
 scripts/release/build-and-sign.sh
-scripts/release/make-dmg.sh 0.1.0
+scripts/release/make-dmg.sh 0.3.0
 
 # Signed + notarized locally:
 export APPLE_DEVELOPER_IDENTITY="Developer ID Application: Your Name (TEAMID)"
 scripts/release/build-and-sign.sh                       # signs with the identity in your keychain
-scripts/release/make-dmg.sh 0.1.0
+scripts/release/make-dmg.sh 0.3.0
 # Either store a notarytool keychain profile once …
 #   xcrun notarytool store-credentials PowerSnekNotary --key AuthKey_XXXX.p8 --key-id <id> --issuer <issuer>
-NOTARY_KEYCHAIN_PROFILE=PowerSnekNotary scripts/release/notarize.sh dist/PowerSnek-0.1.0.dmg
+NOTARY_KEYCHAIN_PROFILE=PowerSnekNotary scripts/release/notarize.sh dist/PowerSnek-0.3.0.dmg
 ```
 
 ## Scripts
