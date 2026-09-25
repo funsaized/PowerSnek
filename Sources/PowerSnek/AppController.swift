@@ -79,6 +79,7 @@ public final class AppController {
     }
 
     private func celebrate(on screens: [NSScreen], isPreview: Bool) {
+        let spec = makeSpec()
         for screen in screens {
             guard let id = screen.displayID else {
                 Log.display.error("screen without a display ID; skipping")
@@ -99,18 +100,30 @@ public final class AppController {
                 let running = sessions.sessions[id]?.animator
                 running?.cancel()
             }
-            startSession(on: screen, id: id)
+            startSession(on: screen, id: id, spec: spec)
         }
     }
 
-    private func startSession(on screen: NSScreen, id: CGDirectDisplayID) {
+    /// Resolves the style, the user's overrides, Reduce Motion, and the
+    /// battery readout (read once, shared by every display).
+    private func makeSpec() -> CelebrationSpec {
+        let color = HexColor.nsColor(fromHex: VisibleColor.clampedHex(settings.cometColorHex))
+            ?? NSColor.systemGreen
+        let readout = settings.showBatteryReadout ? ChargeInfoReader.snapshot().map(ChargeReadout.text(for:)) : nil
+        return CelebrationSpec(profile: settings.activeProfile,
+                               color: color,
+                               laps: settings.lapCount,
+                               lapDuration: settings.lapDuration,
+                               readout: readout,
+                               reduceMotion: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion)
+    }
+
+    private func startSession(on screen: NSScreen, id: CGDirectDisplayID, spec: CelebrationSpec) {
         let input = ScreenGeometry.outlineInput(for: screen,
                                                 inset: inset,
                                                 builtInFallbackRadius: builtInFallbackRadius,
                                                 notchInnerRadius: notchInnerRadius)
         let outline = PerimeterPathBuilder.buildOutline(input)
-        let color = HexColor.nsColor(fromHex: VisibleColor.clampedHex(settings.cometColorHex))
-            ?? NSColor.systemGreen
 
         let window = CometOverlayWindow(screen: screen)
         window.sharingType = settings.hideFromScreenCapture ? .none : .readOnly
@@ -119,9 +132,7 @@ public final class AppController {
         let animator = CometAnimator(host: window.hostLayer,
                                      view: window.contentView!,   // set in CometOverlayWindow.init
                                      outline: outline,
-                                     color: color,
-                                     laps: settings.lapCount,
-                                     lapDuration: settings.lapDuration,
+                                     spec: spec,
                                      contentsScale: screen.backingScaleFactor)
         sessions.begin(id, DisplaySession(window: window, animator: animator, frame: screen.frame))
 

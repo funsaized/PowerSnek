@@ -1,30 +1,59 @@
 import AppKit
+import os
 import PowerSnekKit
 import QuartzCore
 
+/// Everything one celebration needs: the style, the user's (possibly
+/// customized) color/laps/speed, and optional extras.
+struct CelebrationSpec {
+    var profile: CelebrationProfile
+    var color: NSColor
+    var laps: Int
+    var lapDuration: Double
+    /// Battery readout text shown under the notch after landing, or nil.
+    var readout: String?
+    /// Honor the system Reduce Motion setting: glow in place, no travel.
+    var reduceMotion: Bool
+}
+
 /// Drives the Comet 2.0 animation: a CADisplayLink ticks a launch, steady
 /// cruise, and magnetic-capture sweep around the display, followed by a
-/// seamless flash / rim-glow / breathing-pulse finale.
+/// seamless flash / rim-glow / breathing-pulse finale. Styles vary widths,
+/// glow, trail length, colors, and finale; Reduce Motion replaces travel
+/// with a single in-place glow.
 @MainActor
-public final class CometAnimator {
+final class CometAnimator {
 
     // MARK: - State
 
     private let host: CALayer
     private let view: NSView
     private let outline: ScreenOutline
+    private let spec: CelebrationSpec
+    private let finale: CelebrationProfile.Finale
+    /// Geometry/blur scale for this display.
     private let scale: CGFloat
+    /// Stroke-width scale: `scale` times the style's stroke multiplier.
+    private let strokeUnit: CGFloat
+    private let glow: CGFloat
     private let contentsScale: CGFloat
     private let palette: CometPalette
     private let segments: [TrailSegment]
+    /// Travel time; 0 under Reduce Motion.
     private let travel: Double
     private let totalDistance: Double
+    private let finaleDuration: Double
+    private let readoutStart: Double
+    private let totalDuration: Double
     private var completion: (@MainActor () -> Void)?
 
     private var link: CADisplayLink?
     private var startTime: CFTimeInterval?
     private var hasEnteredFinale = false
     private var hasHiddenImpactHead = false
+
+    private let signposter = OSSignposter(subsystem: "com.powersnek.app", category: "Animation")
+    private var signpostState: OSSignpostIntervalState?
 
     // Layers, bottom to top (matching the reference stacking order).
     private var trailHalos: [CAShapeLayer] = []
@@ -39,32 +68,58 @@ public final class CometAnimator {
     private var rimCore: CAShapeLayer?
     private let flash = CAGradientLayer()
     private let glint = CALayer()
+    private var tongue: CAShapeLayer?
+    // Reduce Motion
+    private var outlineHalo: CAShapeLayer?
+    private var outlineCore: CAShapeLayer?
+    // Battery readout
+    private var readout: CALayer?
 
-    /// Prepares one comet for `host`; nothing is drawn until `start`.
+    /// Prepares one celebration for `host`; nothing is drawn until `start`.
     /// `contentsScale` is the target display's backing scale, passed
     /// explicitly so mixed 1x/2x setups render each display at its own scale.
-    public init(host: CALayer, view: NSView, outline: ScreenOutline, color: NSColor,
-                laps: Int, lapDuration: Double, contentsScale: CGFloat) {
+    init(host: CALayer, view: NSView, outline: ScreenOutline, spec: CelebrationSpec,
+         contentsScale: CGFloat) {
         self.host = host
         self.view = view
         self.outline = outline
+        self.spec = spec
+        self.finale = spec.profile.finale
         self.scale = CometMath.visualScale(forScreenWidth: view.bounds.width)
+        self.strokeUnit = scale * spec.profile.strokeScale
+        self.glow = spec.profile.glowScale
         self.contentsScale = contentsScale
-        self.palette = CometPalette(base: color)
+        self.palette = CometPalette(base: spec.color, tailHueShift: spec.profile.tailHueShift)
         self.segments = palette.trailProfile()
         let frac = Double(outline.landingFraction)
-        self.totalDistance = CometMath.totalDistance(laps: laps, landingFraction: frac)
-        self.travel = CometMath.travelDuration(lapDuration: lapDuration,
-                                               laps: laps, landingFraction: frac)
+        self.totalDistance = CometMath.totalDistance(laps: spec.laps, landingFraction: frac)
+        if spec.reduceMotion {
+            self.travel = 0
+            self.finaleDuration = ReducedMotionGlow.duration
+            self.readoutStart = ReducedMotionGlow.fadeIn
+        } else {
+            self.travel = CometMath.travelDuration(lapDuration: spec.lapDuration,
+                                                   laps: spec.laps, landingFraction: frac)
+            self.finaleDuration = spec.profile.finaleDuration
+            self.readoutStart = travel + ChargeReadout.delayAfterLanding
+        }
+        let readoutEnd = spec.readout == nil ? 0 : readoutStart + ChargeReadout.duration
+        self.totalDuration = max(travel + finaleDuration, readoutEnd)
     }
 
-    /// Runs the comet. Calls `completion` exactly once: when the finale ends,
+    /// Runs the celebration. Calls `completion` exactly once: when it ends,
     /// on `cancel()`, from the watchdog if the display link never ticks, or
     /// immediately when the path is degenerate.
-    public func start(completion: @escaping @MainActor () -> Void) {
+    func start(completion: @escaping @MainActor () -> Void) {
         self.completion = completion
         guard outline.totalLength > 1 else { finish(); return }
-        buildLayers()
+        signpostState = signposter.beginInterval("Celebration", id: signposter.makeSignpostID())
+        if spec.reduceMotion {
+            buildReducedMotionLayers()
+        } else {
+            buildLayers()
+        }
+        buildReadoutIfNeeded()
         // The display link retains its target, keeping this animator alive
         // until finish() invalidates it.
         let dl = view.displayLink(target: self, selector: #selector(tick(_:)))
@@ -72,7 +127,7 @@ public final class CometAnimator {
         link = dl
         // Watchdog: if the link stalls (display sleep/detach), still finish
         // so AppController's per-screen debounce is never stranded.
-        let deadline = travel + CometMath.finaleDuration + 2
+        let deadline = totalDuration + 2
         Task { [weak self] in
             try? await Task.sleep(for: .seconds(deadline))
             self?.finish()
@@ -85,11 +140,18 @@ public final class CometAnimator {
         startTime = start
         let t = now - start
 
+        guard t <= totalDuration else {
+            finish()
+            return
+        }
+
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        if t <= travel {
+        if spec.reduceMotion {
+            renderReducedMotion(t)
+        } else if t <= travel {
             renderTravel(t)
-        } else if t <= travel + CometMath.finaleDuration {
+        } else {
             enterFinaleIfNeeded()
             let impactTime = t - travel
             if impactTime < CometMath.impactOverlapDuration {
@@ -98,18 +160,15 @@ public final class CometAnimator {
             } else {
                 hideImpactHeadIfNeeded()
             }
-            renderFinale((t - travel) / CometMath.finaleDuration)
-        } else {
-            CATransaction.commit()
-            finish()
-            return
+            renderFinale(min(1, impactTime / finaleDuration), impactTime: impactTime)
         }
+        renderReadout(t - readoutStart)
         CATransaction.commit()
     }
 
-    /// Tears the comet down now (display removed or reconfigured, or a
+    /// Tears the celebration down now (display removed or reconfigured, or a
     /// preview restarting). Safe to call at any time, any number of times.
-    public func cancel() {
+    func cancel() {
         finish()
     }
 
@@ -118,53 +177,57 @@ public final class CometAnimator {
         completion = nil
         link?.invalidate()
         link = nil
-        ([trailHaloGroup, headGlowGroup, rimHaloGroup, flash, glint, breathA]
-            + trailCores + [headCore]).forEach { $0.removeFromSuperlayer() }
-        rimCore?.removeFromSuperlayer()
+        // The host layer belongs to this celebration's overlay window alone.
+        host.sublayers?.forEach { $0.removeFromSuperlayer() }
+        if let signpostState {
+            signposter.endInterval("Celebration", signpostState)
+            self.signpostState = nil
+        }
         done()
     }
 
     // MARK: - Layer construction
 
-    private func buildLayers() {
-        func makeStroke(_ path: CGPath, _ color: NSColor, width: CGFloat,
-                        cap: CAShapeLayerLineCap = .butt) -> CAShapeLayer {
-            let s = CAShapeLayer()
-            s.frame = host.bounds
-            s.contentsScale = contentsScale
-            s.allowsEdgeAntialiasing = true
-            s.path = path
-            s.fillColor = nil
-            s.strokeColor = color.cgColor
-            s.lineWidth = width
-            s.lineCap = cap
-            s.lineJoin = .round
-            s.opacity = 0
-            return s
-        }
-        func blur(_ layer: CALayer, radius: CGFloat) {
-            layer.masksToBounds = false
-            layer.contentsScale = contentsScale
-            if let f = CIFilter(name: "CIGaussianBlur") {
-                f.setValue(radius, forKey: kCIInputRadiusKey)
-                layer.filters = [f]
-            }
-        }
+    private func makeStroke(_ path: CGPath, _ color: NSColor, width: CGFloat,
+                            cap: CAShapeLayerLineCap = .butt) -> CAShapeLayer {
+        let s = CAShapeLayer()
+        s.frame = host.bounds
+        s.contentsScale = contentsScale
+        s.allowsEdgeAntialiasing = true
+        s.path = path
+        s.fillColor = nil
+        s.strokeColor = color.cgColor
+        s.lineWidth = width
+        s.lineCap = cap
+        s.lineJoin = .round
+        s.opacity = 0
+        return s
+    }
 
+    private func blur(_ layer: CALayer, radius: CGFloat) {
+        layer.masksToBounds = false
+        layer.contentsScale = contentsScale
+        if let f = CIFilter(name: "CIGaussianBlur") {
+            f.setValue(radius, forKey: kCIInputRadiusKey)
+            layer.filters = [f]
+        }
+    }
+
+    private func buildLayers() {
         trailHaloGroup.frame = host.bounds
         trailHaloGroup.compositingFilter = "screenBlendMode"
-        blur(trailHaloGroup, radius: CometMath.trailHaloBlur * scale)
+        blur(trailHaloGroup, radius: CometMath.trailHaloBlur * scale * glow)
         for seg in segments {
             let halo = makeStroke(outline.path, palette.base,
-                                  width: seg.width * CometMath.trailHaloWidthRatio * scale)
-            halo.opacity = Float(seg.alpha * CometMath.trailHaloAlphaRatio)
+                                  width: seg.width * CometMath.trailHaloWidthRatio * strokeUnit)
+            halo.opacity = Float(min(1, seg.alpha * CometMath.trailHaloAlphaRatio * glow))
             trailHaloGroup.addSublayer(halo)
             trailHalos.append(halo)
         }
         host.addSublayer(trailHaloGroup)
 
         for seg in segments {
-            let core = makeStroke(outline.path, seg.color, width: seg.width * scale)
+            let core = makeStroke(outline.path, seg.color, width: seg.width * strokeUnit)
             core.opacity = Float(seg.alpha)
             host.addSublayer(core)
             trailCores.append(core)
@@ -172,14 +235,14 @@ public final class CometAnimator {
 
         headGlowGroup.frame = host.bounds
         headGlowGroup.compositingFilter = "screenBlendMode"
-        blur(headGlowGroup, radius: CometMath.headGlowBlur * scale)
+        blur(headGlowGroup, radius: CometMath.headGlowBlur * scale * glow)
         headGlow = makeStroke(outline.path, palette.bright,
-                              width: CometMath.headGlowWidth * scale, cap: .round)
+                              width: CometMath.headGlowWidth * strokeUnit, cap: .round)
         headGlowGroup.addSublayer(headGlow)
         host.addSublayer(headGlowGroup)
 
         headCore = makeStroke(outline.path, .white,
-                              width: CometMath.headCoreWidth * scale, cap: .round)
+                              width: CometMath.headCoreWidth * strokeUnit, cap: .round)
         host.addSublayer(headCore)
 
         breathA.type = .radial
@@ -200,14 +263,14 @@ public final class CometAnimator {
         if let rim = outline.rimPath {
             rimHaloGroup.frame = host.bounds
             rimHaloGroup.compositingFilter = "screenBlendMode"
-            blur(rimHaloGroup, radius: CometMath.rimHaloBlur * scale)
+            blur(rimHaloGroup, radius: CometMath.rimHaloBlur * scale * glow)
             let halo = makeStroke(rim, palette.bright,
-                                  width: CometMath.rimHaloWidth * scale, cap: .round)
+                                  width: CometMath.rimHaloWidth * strokeUnit, cap: .round)
             rimHaloGroup.addSublayer(halo)
             host.addSublayer(rimHaloGroup)
             rimHalo = halo
             let rcore = makeStroke(rim, palette.rimCore,
-                                   width: CometMath.rimCoreWidth * scale, cap: .round)
+                                   width: CometMath.rimCoreWidth * strokeUnit, cap: .round)
             host.addSublayer(rcore)
             rimCore = rcore
         }
@@ -232,10 +295,106 @@ public final class CometAnimator {
         glint.opacity = 0
         host.addSublayer(glint)
 
+        if finale.showsTongue {
+            let t = CAShapeLayer()
+            t.frame = host.bounds
+            t.contentsScale = contentsScale
+            t.fillColor = nil
+            t.strokeColor = (HexColor.nsColor(fromHex: TongueFlick.colorHex) ?? .systemRed).cgColor
+            t.lineWidth = TongueFlick.width * scale
+            t.lineCap = .round
+            t.lineJoin = .round
+            t.opacity = 0
+            host.addSublayer(t)
+            tongue = t
+        }
+
         // Prime the travel layers before the first display-link tick so no
         // full-path flash can occur between ordering the window front and the
         // first frame.
         renderTravel(0)
+    }
+
+    /// Reduce Motion: the whole outline (notch included) glows in and out
+    /// in place, with no travel, pulsing, or flash.
+    private func buildReducedMotionLayers() {
+        let haloGroup = CALayer()
+        haloGroup.frame = host.bounds
+        haloGroup.compositingFilter = "screenBlendMode"
+        blur(haloGroup, radius: CometMath.trailHaloBlur * scale * glow)
+        let halo = makeStroke(outline.path, palette.bright, width: 14 * strokeUnit, cap: .round)
+        haloGroup.addSublayer(halo)
+        host.addSublayer(haloGroup)
+        outlineHalo = halo
+
+        let core = makeStroke(outline.path, palette.base, width: 4 * strokeUnit, cap: .round)
+        host.addSublayer(core)
+        outlineCore = core
+    }
+
+    /// A dark pill under the notch: bolt glyph + battery status.
+    private func buildReadoutIfNeeded() {
+        guard let text = spec.readout else { return }
+
+        let fontSize = 14 * scale
+        var font = NSFont.systemFont(ofSize: fontSize, weight: .semibold)
+        if let rounded = font.fontDescriptor.withDesign(.rounded),
+           let roundedFont = NSFont(descriptor: rounded, size: fontSize) {
+            font = roundedFont
+        }
+        let string = NSAttributedString(string: text, attributes: [
+            .font: font,
+            .foregroundColor: NSColor.white,
+        ])
+        let textSize = string.size()
+        let textWidth = ceil(textSize.width) + 1
+        let textHeight = ceil(textSize.height)
+
+        let boltWidth = 9 * scale, boltHeight = 13 * scale
+        let gap = 6 * scale, padX = 13 * scale, padY = 6 * scale
+        let width = padX * 2 + boltWidth + gap + textWidth
+        let height = max(textHeight, boltHeight) + padY * 2
+        let notch = outline.notchRect
+
+        let pill = CALayer()
+        pill.frame = CGRect(x: notch.midX - width / 2,
+                            y: notch.minY - 10 * scale - height,
+                            width: width, height: height)
+        pill.cornerRadius = height / 2
+        pill.backgroundColor = NSColor(white: 0.04, alpha: 0.78).cgColor
+        pill.borderColor = palette.bright.withAlphaComponent(0.5).cgColor
+        pill.borderWidth = 1
+        pill.shadowColor = palette.base.cgColor
+        pill.shadowOpacity = 0.55
+        pill.shadowRadius = 10 * scale
+        pill.shadowOffset = .zero
+        pill.contentsScale = contentsScale
+        pill.opacity = 0
+
+        let bolt = CAShapeLayer()
+        bolt.frame = CGRect(x: padX, y: (height - boltHeight) / 2, width: boltWidth, height: boltHeight)
+        bolt.contentsScale = contentsScale
+        let unitBolt: [CGPoint] = [
+            CGPoint(x: 0.62, y: 1.0), CGPoint(x: 0.08, y: 0.44), CGPoint(x: 0.46, y: 0.44),
+            CGPoint(x: 0.36, y: 0.0), CGPoint(x: 0.92, y: 0.58), CGPoint(x: 0.54, y: 0.58),
+        ]
+        let boltPath = CGMutablePath()
+        boltPath.addLines(between: unitBolt.map { CGPoint(x: $0.x * boltWidth, y: $0.y * boltHeight) })
+        boltPath.closeSubpath()
+        bolt.path = boltPath
+        bolt.fillColor = palette.bright.cgColor
+        pill.addSublayer(bolt)
+
+        let label = CATextLayer()
+        label.string = string
+        label.contentsScale = contentsScale
+        label.alignmentMode = .left
+        label.frame = CGRect(x: padX + boltWidth + gap, y: (height - textHeight) / 2,
+                             width: textWidth, height: textHeight)
+        pill.addSublayer(label)
+
+        host.addSublayer(pill)
+        readout = pill
     }
 
     // MARK: - Per-frame rendering
@@ -262,7 +421,8 @@ public final class CometAnimator {
     private func renderTravel(_ t: Double) {
         let e = totalDistance * CometMath.travelProgress(elapsed: t, duration: travel)
         let head = wrap(e)
-        let trail = CometMath.trailLength(progress: e, total: totalDistance)
+        let trail = CometMath.trailLength(progress: e, total: totalDistance,
+                                          maxFraction: spec.profile.trailFraction)
         let throb = CGFloat(CometMath.throb(at: t))
         let n = segments.count
 
@@ -279,11 +439,11 @@ public final class CometAnimator {
     }
 
     private func setHead(at position: Double, throb: CGFloat, opacity: Double) {
-        headGlow.lineWidth = CometMath.headGlowWidth * scale * throb
+        headGlow.lineWidth = CometMath.headGlowWidth * strokeUnit * throb
         headGlow.opacity = Float(0.85 * opacity)
         setDash(headGlow, start: position - CometMath.headDashFraction,
                 length: CometMath.headDashFraction)
-        headCore.lineWidth = CometMath.headCoreWidth * scale * throb
+        headCore.lineWidth = CometMath.headCoreWidth * strokeUnit * throb
         headCore.opacity = Float(opacity)
         setDash(headCore, start: position - CometMath.headDashFraction,
                 length: CometMath.headDashFraction)
@@ -296,6 +456,7 @@ public final class CometAnimator {
     private func enterFinaleIfNeeded() {
         guard !hasEnteredFinale else { return }
         hasEnteredFinale = true
+        signposter.emitEvent("Finale")
         (trailCores + trailHalos).forEach { $0.opacity = 0 }
     }
 
@@ -306,11 +467,11 @@ public final class CometAnimator {
         headGlow.opacity = 0
     }
 
-    private func renderFinale(_ u: Double) {
+    private func renderFinale(_ u: Double, impactTime: Double) {
         let f = FinaleState.at(u)
 
         setCircle(flash, center: outline.landingPoint, radius: f.flashRadius * scale)
-        flash.opacity = Float(f.flashOpacity)
+        flash.opacity = Float(f.flashOpacity * finale.flashGain)
 
         if let rimHalo, let rimCore {
             let total = Double(outline.rimLength)
@@ -319,7 +480,7 @@ public final class CometAnimator {
                 layer.lineDashPattern = [NSNumber(value: len), NSNumber(value: total - len)]
                 layer.lineDashPhase = -CGFloat((0.5 - Double(f.rimFraction)) * total)
             }
-            rimHalo.opacity = Float(0.85 * f.fade)
+            rimHalo.opacity = Float(min(1, 0.85 * f.fade * glow))
             rimCore.opacity = Float(f.fade)
         }
 
@@ -334,9 +495,38 @@ public final class CometAnimator {
                                width: width, height: height)
         // The radial color stops form a hollow-hot halo instead of the flat
         // center produced by a solid layer plus Gaussian blur.
-        breathA.opacity = Float(0.9 * o * f.fade)
+        breathA.opacity = Float(min(1, 0.9 * o * f.fade * finale.breathGain))
 
         setCircle(glint, center: outline.landingPoint, radius: f.glintRadius * scale)
-        glint.opacity = Float(f.glintOpacity)
+        glint.opacity = Float(f.glintOpacity * finale.glintGain)
+
+        if let tongue {
+            let reach = TongueFlick.reach(at: impactTime)
+            if reach > 0 {
+                let s = TongueFlick.shape(origin: outline.landingPoint, reach: reach, scale: scale)
+                let path = CGMutablePath()
+                path.move(to: s.origin)
+                path.addLine(to: s.stemEnd)
+                path.move(to: s.stemEnd)
+                path.addLine(to: s.leftTip)
+                path.move(to: s.stemEnd)
+                path.addLine(to: s.rightTip)
+                tongue.path = path
+                tongue.opacity = 1
+            } else {
+                tongue.opacity = 0
+            }
+        }
+    }
+
+    private func renderReducedMotion(_ t: Double) {
+        let o = ReducedMotionGlow.opacity(at: t)
+        outlineHalo?.opacity = Float(min(1, 0.8 * o * Double(glow)))
+        outlineCore?.opacity = Float(o)
+    }
+
+    private func renderReadout(_ t: Double) {
+        guard let readout else { return }
+        readout.opacity = Float(ChargeReadout.opacity(at: t))
     }
 }

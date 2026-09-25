@@ -12,6 +12,8 @@ public final class SettingsStore: ObservableObject {
         static let onboarded = "hasCompletedOnboarding"
         static let pauseOverFullScreen = "pauseOverFullScreen"
         static let hideFromCapture = "hideFromScreenCapture"
+        static let style = "styleID"
+        static let batteryReadout = "showBatteryReadout"
     }
 
     private let defaults: UserDefaults
@@ -36,6 +38,27 @@ public final class SettingsStore: ObservableObject {
     /// Exclude the overlay from screenshots, recordings, and screen sharing.
     @Published public var hideFromScreenCapture: Bool { didSet { defaults.set(hideFromScreenCapture, forKey: Key.hideFromCapture) } }
 
+    /// The selected `CelebrationProfile`. Color, laps, and speed start from
+    /// its presets but can be customized independently.
+    @Published public var styleID: String { didSet { defaults.set(styleID, forKey: Key.style) } }
+    /// Show the battery level under the notch after the comet lands.
+    @Published public var showBatteryReadout: Bool { didSet { defaults.set(showBatteryReadout, forKey: Key.batteryReadout) } }
+
+    public var activeProfile: CelebrationProfile { CelebrationProfile.named(styleID) }
+
+    /// Color, laps, or speed differ from the selected style's presets.
+    public var isCustomized: Bool {
+        !activeProfile.matches(colorHex: cometColorHex, laps: lapCount, lapDuration: lapDuration)
+    }
+
+    /// Selects a style and resets color, laps, and speed to its presets.
+    public func apply(_ profile: CelebrationProfile) {
+        styleID = profile.id
+        cometColorHex = profile.colorHex
+        lapCount = profile.laps
+        lapDuration = profile.lapDuration
+    }
+
     public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         defaults.register(defaults: [
@@ -46,6 +69,10 @@ public final class SettingsStore: ObservableObject {
             Key.onboarded: false,
             Key.pauseOverFullScreen: true,
             Key.hideFromCapture: true,
+            // Existing installs have no style yet: they keep their stored
+            // color/laps/speed under the original style.
+            Key.style: CelebrationProfile.defaultID,
+            Key.batteryReadout: true,
         ])
         self.effectEnabled = defaults.bool(forKey: Key.enabled)
         self.cometColorHex = VisibleColor.clampedHex(defaults.string(forKey: Key.color) ?? SettingsStore.defaultColorHex)
@@ -54,5 +81,7 @@ public final class SettingsStore: ObservableObject {
         self.hasCompletedOnboarding = defaults.bool(forKey: Key.onboarded)
         self.pauseOverFullScreen = defaults.bool(forKey: Key.pauseOverFullScreen)
         self.hideFromScreenCapture = defaults.bool(forKey: Key.hideFromCapture)
+        self.styleID = CelebrationProfile.named(defaults.string(forKey: Key.style) ?? CelebrationProfile.defaultID).id
+        self.showBatteryReadout = defaults.bool(forKey: Key.batteryReadout)
     }
 }

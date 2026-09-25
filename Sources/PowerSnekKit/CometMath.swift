@@ -96,8 +96,9 @@ public enum CometMath {
     /// Visible trail length (fraction of the perimeter) at eased progress
     /// `e` of `total`: grows from launch, collapses into the head over the
     /// last `collapseFraction` of the approach.
-    public static func trailLength(progress e: Double, total: Double) -> Double {
-        min(trailMaxFraction, e) * min(1, max(0, total - e) / collapseFraction)
+    public static func trailLength(progress e: Double, total: Double,
+                                   maxFraction: Double = trailMaxFraction) -> Double {
+        min(maxFraction, e) * min(1, max(0, total - e) / collapseFraction)
     }
 
     /// Total sweep distance in perimeter-lengths.

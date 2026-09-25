@@ -18,6 +18,15 @@ struct SettingsView: View {
 
             LaunchAtLoginToggle(model: loginItem)
 
+            Picker("Style", selection: Binding(
+                get: { settings.styleID },
+                set: { settings.apply(CelebrationProfile.named($0)) }
+            )) {
+                ForEach(CelebrationProfile.all) { Text($0.name).tag($0.id) }
+            }
+
+            Toggle("Show battery level after landing", isOn: $settings.showBatteryReadout)
+
             Toggle("Pause over full-screen apps", isOn: $settings.pauseOverFullScreen)
                 .help("Skips displays showing a full-screen app, video, or presentation.")
 
