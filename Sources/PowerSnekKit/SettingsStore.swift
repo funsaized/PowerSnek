@@ -14,6 +14,8 @@ public final class SettingsStore: ObservableObject {
         static let hideFromCapture = "hideFromScreenCapture"
         static let style = "styleID"
         static let batteryReadout = "showBatteryReadout"
+        static let autoUpdateCheck = "checkForUpdatesAutomatically"
+        static let lastUpdateCheck = "lastUpdateCheck"
     }
 
     private let defaults: UserDefaults
@@ -44,6 +46,16 @@ public final class SettingsStore: ObservableObject {
     /// Show the battery level under the notch after the comet lands.
     @Published public var showBatteryReadout: Bool { didSet { defaults.set(showBatteryReadout, forKey: Key.batteryReadout) } }
 
+    /// Look for a newer release on GitHub at most once a day.
+    @Published public var checkForUpdatesAutomatically: Bool {
+        didSet { defaults.set(checkForUpdatesAutomatically, forKey: Key.autoUpdateCheck) }
+    }
+    /// When the last update check (automatic or manual) succeeded.
+    public var lastUpdateCheck: Date? {
+        get { defaults.object(forKey: Key.lastUpdateCheck) as? Date }
+        set { defaults.set(newValue, forKey: Key.lastUpdateCheck) }
+    }
+
     public var activeProfile: CelebrationProfile { CelebrationProfile.named(styleID) }
 
     /// Color, laps, or speed differ from the selected style's presets.
@@ -73,6 +85,7 @@ public final class SettingsStore: ObservableObject {
             // color/laps/speed under the original style.
             Key.style: CelebrationProfile.defaultID,
             Key.batteryReadout: true,
+            Key.autoUpdateCheck: true,
         ])
         self.effectEnabled = defaults.bool(forKey: Key.enabled)
         self.cometColorHex = VisibleColor.clampedHex(defaults.string(forKey: Key.color) ?? SettingsStore.defaultColorHex)
@@ -83,5 +96,6 @@ public final class SettingsStore: ObservableObject {
         self.hideFromScreenCapture = defaults.bool(forKey: Key.hideFromCapture)
         self.styleID = CelebrationProfile.named(defaults.string(forKey: Key.style) ?? CelebrationProfile.defaultID).id
         self.showBatteryReadout = defaults.bool(forKey: Key.batteryReadout)
+        self.checkForUpdatesAutomatically = defaults.bool(forKey: Key.autoUpdateCheck)
     }
 }

@@ -32,14 +32,15 @@ final class WelcomeWindowController: NSObject, NSWindowDelegate {
         }
 
         let root = WelcomeView(
+            settings: settings,
             loginItem: loginItem,
-            onPreview: { [weak self] in self?.controller.runTestAnimation() },
+            onPreview: { [weak self] in self?.controller.preview() },
             onCustomize: { [weak self] in self?.openSettings() },
             onDone: { [weak self] in self?.dismiss() }
         )
 
         let win = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 460, height: 540),
+            contentRect: NSRect(x: 0, y: 0, width: 500, height: 560),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false

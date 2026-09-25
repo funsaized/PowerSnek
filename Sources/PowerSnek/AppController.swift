@@ -65,10 +65,6 @@ public final class AppController {
         celebrate(on: screen.map { [$0] } ?? NSScreen.screens, isPreview: true)
     }
 
-    public func runTestAnimation() {
-        preview()
-    }
-
     private func userMayBeBack() {
         guard ScreenProbe.isAnythingPresentable() else { return }
         let onAC = PowerMonitor.currentState() == .ac
