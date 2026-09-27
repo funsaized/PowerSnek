@@ -24,8 +24,8 @@ work after the animation finishes.
 
 ## Install
 
-**Download:** get the latest `PowerSnek-x.y.z.dmg` from
-[Releases](https://github.com/funsaized/PowerSnek/releases), open it, and drag
+**Download:** get [the latest DMG](https://github.com/funsaized/PowerSnek/releases/latest/download/PowerSnek.dmg)
+(or pick a version from [Releases](https://github.com/funsaized/PowerSnek/releases)), open it, and drag
 **PowerSnek** to Applications. Launch it, and a small power icon appears in the
 menu bar. There is no Dock icon.
 
@@ -112,7 +112,8 @@ secrets. To cut a release:
 
 ```bash
 # After updating MARKETING_VERSION and CURRENT_PROJECT_VERSION in project.yml
-# (and LATEST_VERSION in site/src/release.ts once the release is published):
+# (and LATEST_VERSION in site/src/release.ts, which only labels the site; its
+# download link always serves releases/latest/download/PowerSnek.dmg):
 git tag v0.3.0 && git push origin v0.3.0
 ```
 
